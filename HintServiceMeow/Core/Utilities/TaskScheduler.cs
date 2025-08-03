@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace HintServiceMeow.Core.Utilities
 {
-    internal class TaskScheduler : Interface.ITaskScheduler, Interface.IDestructible
+    public class TaskScheduler : Interface.ITaskScheduler, Interface.IDestructible
     {
         private readonly ReaderWriterLockSlim _actionTimeLock = new();
 

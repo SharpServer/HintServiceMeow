@@ -8,7 +8,7 @@ namespace HintServiceMeow.Core.Utilities
     /// <summary>
     /// Default implementation of UpdateAnalyser. Used to update hint's update
     /// </summary>
-    internal class UpdateAnalyzer : IUpdateAnalyser
+    public class UpdateAnalyzer : IUpdateAnalyser
     {
         private readonly object _lock = new();
 
