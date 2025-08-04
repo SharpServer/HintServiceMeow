@@ -26,26 +26,26 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Exiled|AnyCPU'">
+    <AssemblyName>HintServiceMeow-Exiled</AssemblyName>
     <Optimize>true</Optimize>
-    <DefineConstants>EXILED;</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Northwood.LabAPI" Version="$(LabAPIVersion)"/>
-    <PackageReference Include="Lib.Harmony" Version="$(HarmonyVersion)"/>
-    <PackageReference Include="YamlDotNet" Version="$(YamlDotNetVersion)"/>
+    <PackageReference Include="Northwood.LabAPI" Version="$(LabAPIVersion)" IncludeAssets="compile" PrivateAssets="all" />
+    <PackageReference Include="Lib.Harmony" Version="$(HarmonyVersion)" IncludeAssets="compile" PrivateAssets="all" />
+    <PackageReference Include="YamlDotNet" Version="$(YamlDotNetVersion)" IncludeAssets="compile" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="Assembly-CSharp-firstpass" HintPath="..\Dependencies\Assembly-CSharp-firstpass.dll" />
-    <Reference Include="Assembly-CSharp-publicized" HintPath="..\Dependencies\Assembly-CSharp-publicized.dll" />
-    <Reference Include="CommandSystem.Core" HintPath="..\Dependencies\CommandSystem.Core.dll" />
-    <Reference Include="Exiled.API" HintPath="..\Dependencies\Exiled.API.dll" />
-    <Reference Include="Exiled.Events" HintPath="..\Dependencies\Exiled.Events.dll" />
-    <Reference Include="Mirror" HintPath="..\Dependencies\Mirror.dll"/>
-    <Reference Include="UnityEngine.CoreModule" HintPath="..\Dependencies\UnityEngine.CoreModule.dll"/>
-    <Reference Include="System.IO.Compression" />
+    <Reference Include="Assembly-CSharp-firstpass" HintPath="..\Dependencies\Assembly-CSharp-firstpass.dll" Private="False" />
+    <Reference Include="Assembly-CSharp-publicized" HintPath="..\Dependencies\Assembly-CSharp-publicized.dll" Private="False" />
+    <Reference Include="CommandSystem.Core" HintPath="..\Dependencies\CommandSystem.Core.dll" Private="False" />
+    <Reference Include="Exiled.API" HintPath="..\Dependencies\Exiled.API.dll" Private="False" />
+    <Reference Include="Exiled.Events" HintPath="..\Dependencies\Exiled.Events.dll" Private="False" />
+    <Reference Include="Mirror" HintPath="..\Dependencies\Mirror.dll" Private="False" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="..\Dependencies\UnityEngine.CoreModule.dll" Private="False" />
+    <Reference Include="System.IO.Compression" Private="False" />
   </ItemGroup>
 
   <ItemGroup>
