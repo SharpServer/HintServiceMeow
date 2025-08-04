@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace HintServiceMeow.Core.Utilities
 {
-    public class PeriodicRunner : IDisposable
+    internal class PeriodicRunner : IDisposable
     {
         private readonly CancellationTokenSource _cts = new();
         private readonly TimeSpan _interval;

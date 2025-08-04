@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace HintServiceMeow.Core.Utilities
 {
-    public class Cache<TKey, TItem> : ICache<TKey, TItem>
+    internal class Cache<TKey, TItem> : ICache<TKey, TItem>
     {
         private readonly object _lock = new();
 
