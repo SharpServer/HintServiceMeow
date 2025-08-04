@@ -38,13 +38,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="Assembly-CSharp-firstpass" HintPath="$(SL_REFERENCES)\Assembly-CSharp-firstpass.dll" />
-    <Reference Include="Assembly-CSharp-publicized" HintPath="$(SL_REFERENCES)\Assembly-CSharp-publicized.dll" />
-    <Reference Include="CommandSystem.Core" HintPath="$(SL_REFERENCES)\CommandSystem.Core.dll" />
-    <Reference Include="Exiled.API" HintPath="$(SL_REFERENCES)\Exiled.API.dll" />
-    <Reference Include="Exiled.Events" HintPath="$(SL_REFERENCES)\Exiled.Events.dll" />
-    <Reference Include="Mirror" HintPath="$(SL_REFERENCES)\Mirror.dll"/>
-    <Reference Include="UnityEngine.CoreModule" HintPath="$(SL_REFERENCES)\UnityEngine.CoreModule.dll"/>
+    <Reference Include="Assembly-CSharp-firstpass" HintPath="..\Dependencies\Assembly-CSharp-firstpass.dll" />
+    <Reference Include="Assembly-CSharp-publicized" HintPath="..\Dependencies\Assembly-CSharp-publicized.dll" />
+    <Reference Include="CommandSystem.Core" HintPath="..\Dependencies\CommandSystem.Core.dll" />
+    <Reference Include="Exiled.API" HintPath="..\Dependencies\Exiled.API.dll" />
+    <Reference Include="Exiled.Events" HintPath="..\Dependencies\Exiled.Events.dll" />
+    <Reference Include="Mirror" HintPath="..\Dependencies\Mirror.dll"/>
+    <Reference Include="UnityEngine.CoreModule" HintPath="..\Dependencies\UnityEngine.CoreModule.dll"/>
     <Reference Include="System.IO.Compression" />
   </ItemGroup>
 

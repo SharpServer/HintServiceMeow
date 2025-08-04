@@ -29,8 +29,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="Assembly-CSharp" HintPath="$(SL_REFERENCES)\Assembly-CSharp.dll" />
-    <Reference Include="UnityEngine.CoreModule" HintPath="$(SL_REFERENCES)\UnityEngine.CoreModule.dll" />
+    <Reference Include="Assembly-CSharp" HintPath="..\Dependencies\Assembly-CSharp-publicized.dll" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="..\Dependencies\UnityEngine.CoreModule.dll" />
   </ItemGroup>
 
   <ItemGroup>
