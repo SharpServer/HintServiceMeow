@@ -1,6 +1,6 @@
 ﻿namespace HintServiceMeow.Core.Interface
 {
-    internal interface IDestructible
+    public interface IDestructible
     {
         void Destruct();
     }
