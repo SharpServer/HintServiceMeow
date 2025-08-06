@@ -24,7 +24,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MSTest.TestFramework" Version="3.10.0" IncludeAssets="compile" PrivateAssets="all" />
+    <PackageReference Include="MSTest" Version="3.10.0" />
   </ItemGroup>
 
   <ItemGroup>
