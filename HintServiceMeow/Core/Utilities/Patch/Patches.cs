@@ -1,14 +1,19 @@
-﻿using Hints;
-using HintServiceMeow.Core.Extension;
-using HintServiceMeow.Core.Utilities.Tools;
-using LabApi.Features.Wrappers;
-using System;
-using System.Reflection;
-
-namespace HintServiceMeow.Core.Utilities.Patch
+﻿namespace HintServiceMeow.Core.Utilities.Patch
 {
+    using System;
+    using System.Reflection;
+
+    using Hints;
+
+    using HintServiceMeow.Core.Extension;
+    using HintServiceMeow.Core.Utilities.Tools;
+    using HintServiceMeow.Plugin;
+
+    using LabApi.Features.Wrappers;
+
     internal static class Patches
     {
+#pragma warning disable SA1313
         public static bool HintDisplayPatch(ref Hint hint, ref HintDisplay __instance)
         {
             try
@@ -90,6 +95,7 @@ namespace HintServiceMeow.Core.Utilities.Patch
         }
 
         public static bool ExiledHintPatch2(ref Exiled.API.Features.Hint hint, ref Exiled.API.Features.Player __instance)
+#pragma warning restore SA1313
         {
             try
             {

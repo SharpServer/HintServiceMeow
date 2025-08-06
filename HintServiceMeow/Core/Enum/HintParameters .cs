@@ -6,7 +6,7 @@
         High = 160,
         Medium = 128,
         Low = 96,
-        Lowest = 64
+        Lowest = 64,
     }
 
     public enum DynamicHintStrategy
@@ -15,24 +15,25 @@
         /// Let dynamic hint hide itself when no position is available
         /// </summary>
         Hide,
+
         /// <summary>
         /// Let dynamic hint stay on target position when no position is available
         /// </summary>
-        StayInPosition
+        StayInPosition,
     }
 
     public enum HintAlignment
     {
         Left,
         Right,
-        Center
+        Center,
     }
 
     public enum HintVerticalAlign
     {
         Top,
         Middle,
-        Bottom
+        Bottom,
     }
 
     public enum HintSyncSpeed

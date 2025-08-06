@@ -1,7 +1,7 @@
-﻿using System;
-
-namespace HintServiceMeow.Core.Enum
+﻿namespace HintServiceMeow.Core.Enum
 {
+    using System;
+
     [Flags]
     internal enum TextStyle
     {

@@ -1,18 +1,19 @@
-﻿using HintServiceMeow.Core.Interface;
-using HintServiceMeow.Core.Utilities.Parser;
-using System.Collections.Concurrent;
-
-namespace HintServiceMeow.Core.Utilities.Pools
+﻿namespace HintServiceMeow.Core.Utilities.Pools
 {
+    using System.Collections.Concurrent;
+
+    using HintServiceMeow.Core.Interface;
+    using HintServiceMeow.Core.Utilities.Parser;
+
     internal class RichTextParserPool : IPool<RichTextParser>
     {
-        public static RichTextParserPool Instance { get; } = new RichTextParserPool();
+        private readonly ConcurrentQueue<RichTextParser> richTextParserQueue = new();
 
-        private readonly ConcurrentQueue<RichTextParser> RichTextParserQueue = new();
+        public static RichTextParserPool Instance { get; } = new();
 
         public RichTextParser Rent()
         {
-            if (RichTextParserQueue.TryDequeue(out RichTextParser rtp))
+            if (richTextParserQueue.TryDequeue(out RichTextParser rtp))
                 return rtp;
 
             return new RichTextParser();
@@ -20,7 +21,7 @@ namespace HintServiceMeow.Core.Utilities.Pools
 
         public void Return(RichTextParser parser)
         {
-            RichTextParserQueue.Enqueue(parser);
+            richTextParserQueue.Enqueue(parser);
         }
     }
 }

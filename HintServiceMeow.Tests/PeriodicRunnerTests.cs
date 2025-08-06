@@ -13,7 +13,7 @@ namespace HintServiceMeow.Tests
 
         private static TimeSpan GetLength(TimeSpan interval, int times)
         {
-            return TimeSpan.FromTicks((long)(interval.Ticks * times));
+            return TimeSpan.FromTicks(interval.Ticks * times);
         }
 
         [TestMethod]
@@ -21,18 +21,16 @@ namespace HintServiceMeow.Tests
         {
             int count = 0;
 
-            using (var runner = PeriodicRunner.Start(
-                       () =>
-                       {
-                           Interlocked.Increment(ref count);
-                           return Task.CompletedTask;
-                       },
-                       ShortInterval,
-                       runImmediately: false))
-            {
-                await Task.Delay(GetLength(ShortInterval, 5));
-                Assert.IsTrue(count >= 4);
-            }
+            using PeriodicRunner runner = PeriodicRunner.Start(
+                () =>
+                {
+                    Interlocked.Increment(ref count);
+                    return Task.CompletedTask;
+                },
+                ShortInterval,
+                runImmediately: false);
+            await Task.Delay(GetLength(ShortInterval, 5));
+            Assert.IsGreaterThanOrEqualTo(4, count);
         }
 
         [TestMethod]
@@ -40,18 +38,16 @@ namespace HintServiceMeow.Tests
         {
             int count = 0;
 
-            using (var runner = PeriodicRunner.Start(
-                       () =>
-                       {
-                           Interlocked.Increment(ref count);
-                           return Task.CompletedTask;
-                       },
-                       ShortInterval,
-                       runImmediately: true))
-            {
-                await Task.Delay(TimeSpan.FromMilliseconds(10));
-                Assert.AreEqual(1, count);
-            }
+            using PeriodicRunner runner = PeriodicRunner.Start(
+                () =>
+                {
+                    Interlocked.Increment(ref count);
+                    return Task.CompletedTask;
+                },
+                ShortInterval,
+                runImmediately: true);
+            await Task.Delay(TimeSpan.FromMilliseconds(10));
+            Assert.AreEqual(1, count);
         }
 
         [TestMethod]
@@ -59,32 +55,30 @@ namespace HintServiceMeow.Tests
         {
             int count = 0;
 
-            using (var runner = PeriodicRunner.Start(
-                       () =>
-                       {
-                           Interlocked.Increment(ref count);
-                           return Task.CompletedTask;
-                       },
-                       ShortInterval))
-            {
-                await Task.Delay(GetLength(ShortInterval, 3));
+            using PeriodicRunner runner = PeriodicRunner.Start(
+                () =>
+                {
+                    Interlocked.Increment(ref count);
+                    return Task.CompletedTask;
+                },
+                ShortInterval);
+            await Task.Delay(GetLength(ShortInterval, 3));
 
-                runner.Pause();
-                int before = count;
-                await Task.Delay(GetLength(ShortInterval, 4));
-                Assert.AreEqual(before, count);
+            runner.Pause();
+            int before = count;
+            await Task.Delay(GetLength(ShortInterval, 4));
+            Assert.AreEqual(before, count);
 
-                runner.Resume();
-                await Task.Delay(GetLength(ShortInterval, 3));
-                Assert.IsTrue(count > before);
-            }
+            runner.Resume();
+            await Task.Delay(GetLength(ShortInterval, 3));
+            Assert.IsGreaterThan(before, count);
         }
 
         [TestMethod]
         public async Task Dispose_StopsFurtherInvocations()
         {
             int count = 0;
-            var runner = PeriodicRunner.Start(
+            PeriodicRunner runner = PeriodicRunner.Start(
                 () =>
                 {
                     Interlocked.Increment(ref count);
@@ -107,27 +101,24 @@ namespace HintServiceMeow.Tests
         {
             int count = 0;
 
-            using (var runner = PeriodicRunner.Start(
-                       () =>
-                       {
-                           int cur = Interlocked.Increment(ref count);
-                           if (cur == 1)
-                               throw new InvalidOperationException("Test");
-                           return Task.CompletedTask;
-                       },
-                       ShortInterval))
-            {
-                await Task.Delay(GetLength(ShortInterval, 4));
-                Assert.IsTrue(count >= 3);
-            }
+            using PeriodicRunner runner = PeriodicRunner.Start(
+                () =>
+                {
+                    int cur = Interlocked.Increment(ref count);
+                    if (cur == 1)
+                        throw new InvalidOperationException("Test");
+                    return Task.CompletedTask;
+                },
+                ShortInterval);
+            await Task.Delay(GetLength(ShortInterval, 4));
+            Assert.IsGreaterThanOrEqualTo(3, count);
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentOutOfRangeException))]
         public void NegativeInterval_Throws()
         {
-            PeriodicRunner.Start(() => Task.CompletedTask,
-                                 TimeSpan.FromMilliseconds(-1));
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => PeriodicRunner.Start(() => Task.CompletedTask,
+                                 TimeSpan.FromMilliseconds(-1)));
         }
     }
 }

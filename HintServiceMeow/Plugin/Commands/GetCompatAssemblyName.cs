@@ -1,11 +1,13 @@
-﻿using CommandSystem;
-using HintServiceMeow.Core.Utilities.Pools;
-using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace HintServiceMeow
+﻿namespace HintServiceMeow.Plugin.Commands
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Text;
+
+    using CommandSystem;
+
+    using HintServiceMeow.Core.Utilities.Pools;
+
     [CommandHandler(typeof(RemoteAdminCommandHandler))]
     internal class GetCompatAssemblyName : ICommand
     {

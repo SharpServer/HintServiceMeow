@@ -1,109 +1,117 @@
-﻿#if !EXILED
-using LabApi.Loader.Features.Plugins.Enums;
-using LabApi.Events.Arguments.PlayerEvents;
-using LabApi.Events.Handlers;
-using LabApi.Features;
-using LabApi.Loader;
-#endif
-
-using HintServiceMeow.Core.Utilities;
-using HintServiceMeow.Core.Utilities.Patch;
-using HintServiceMeow.Core.Utilities.Tools;
-using HintServiceMeow.UI.Utilities;
-
-using System;
-
-namespace HintServiceMeow
+﻿namespace HintServiceMeow.Plugin
 {
+    using System;
+    using HintServiceMeow.Core.Utilities;
+    using HintServiceMeow.Core.Utilities.Patch;
+    using HintServiceMeow.Core.Utilities.Tools;
+    using HintServiceMeow.UI.Utilities;
 
-#if EXILED
-    internal class Plugin : Exiled.API.Features.Plugin<ExiledPluginConfig>
-#else
+    #if !EXILED
+    using LabApi.Events.Arguments.PlayerEvents;
+    using LabApi.Events.Handlers;
+    using LabApi.Features;
+    using LabApi.Loader;
+    using LabApi.Loader.Features.Plugins.Enums;
+    #endif
+
+    #if EXILED
+    internal class Plugin : Exiled.API.Features.Plugin<PluginConfig>
+    #else
     internal class Plugin : LabApi.Loader.Features.Plugins.Plugin
-#endif
+    #endif
     {
-        public static Plugin Instance;
+        public static Plugin Instance { get; private set; } = null!;
 
-#if EXILED
+        #if EXILED
         public override string Name => "HintServiceMeow";
+
         public override string Author => "MeowServer";
+
         public override Version Version => new(5, 4, 4);
+
         public override Version RequiredExiledVersion => new(9, 6, 0);
+
         public override Exiled.API.Enums.PluginPriority Priority => Exiled.API.Enums.PluginPriority.Highest;
-#else
+        #else
         public override string Name => "HintServiceMeow";
+
         public override string Author => "MeowServer";
+
         public override Version Version => new(5, 4, 4);
+
         public override Version RequiredApiVersion => new(LabApiProperties.CompiledVersion);
+
         public override string Description => "A hint framework";
+
         public override LoadPriority Priority => LoadPriority.Highest;
 
-        public PluginConfig Config;
+        public PluginConfig Config { get; private set; } = null!;
+
         public override void LoadConfigs()
         {
             base.LoadConfigs();
 
-            Config = this.LoadConfig<PluginConfig>("config.yml");
+            Config = this.LoadConfig<PluginConfig>("config.yml") ?? throw new NullReferenceException("Could not load plugin config!");
         }
-#endif
+        #endif
 
-#if EXILED
+        #if EXILED
         public override void OnEnabled()
-#else
+        #else
         public override void Enable()
-#endif
+        #endif
         {
             Instance = this;
 
-#if EXILED
+            #if EXILED
             Exiled.Events.Handlers.Player.Left += OnLeft;
             Exiled.Events.Handlers.Server.WaitingForPlayers += OnWaitingForPlayers;
-#else
+            #else
             ServerEvents.WaitingForPlayers += OnWaitingForPlayers;
             PlayerEvents.Left += OnLeft;
-#endif
+            #endif
 
-            //Initialize Components
+            // Initialize Components
             _ = FontTool.Instance;
             _ = ConcurrentTaskDispatcher.Instance;
 
-#if EXILED
+            #if EXILED
             base.OnEnabled();
-#endif
+            #endif
         }
 
-#if EXILED
+        #if EXILED
         public override void OnDisabled()
-#else
+        #else
         public override void Disable()
-#endif
+        #endif
         {
-#if EXILED
+            #if EXILED
             Exiled.Events.Handlers.Player.Left -= OnLeft;
             Exiled.Events.Handlers.Server.WaitingForPlayers -= OnWaitingForPlayers;
-#else
+            #else
             PlayerEvents.Left -= OnLeft;
             ServerEvents.WaitingForPlayers -= OnWaitingForPlayers;
-#endif
+            #endif
 
-#if EXILED
+            #if EXILED
             base.OnDisabled();
-#endif
+            #endif
         }
 
-#if EXILED
-        private void OnLeft(Exiled.Events.EventArgs.Player.LeftEventArgs ev)
-#else
+        private static void OnWaitingForPlayers()
+        {
+            Patcher.Patch();
+        }
+
+        #if EXILED
+        private static void OnLeft(Exiled.Events.EventArgs.Player.LeftEventArgs ev)
+        #else
         private void OnLeft(PlayerLeftEventArgs ev)
-#endif
+        #endif
         {
             PlayerUI.Destruct(ev.Player.ReferenceHub);
             PlayerDisplay.Destruct(ev.Player.ReferenceHub);
-        }
-
-        private void OnWaitingForPlayers()
-        {
-            Patcher.Patch();
         }
     }
 }

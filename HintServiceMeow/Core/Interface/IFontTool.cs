@@ -1,7 +1,7 @@
-﻿using HintServiceMeow.Core.Enum;
-
-namespace HintServiceMeow.Core.Interface
+﻿namespace HintServiceMeow.Core.Interface
 {
+    using HintServiceMeow.Core.Enum;
+
     internal interface IFontTool
     {
         float GetCharWidth(char c, float fontSize, TextStyle style);

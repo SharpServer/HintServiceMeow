@@ -1,21 +1,12 @@
-﻿using HintServiceMeow.Core.Models.Hints;
-using HintServiceMeow.Core.Utilities;
-using System;
-
-namespace HintServiceMeow.Core.Models.Arguments
+﻿namespace HintServiceMeow.Core.Models.Arguments
 {
+    using System;
+
+    using HintServiceMeow.Core.Models.Hints;
+    using HintServiceMeow.Core.Utilities;
+
     public class AutoContentUpdateArg
     {
-        public AbstractHint Hint { get; }
-        public PlayerDisplay PlayerDisplay { get; }
-
-        /// <summary>
-        /// The delay before the next update. Count in seconds.
-        /// </summary>
-        public TimeSpan NextUpdateDelay { get; set; }
-
-        public TimeSpan DefaultUpdateDelay { get; set; }
-
         internal AutoContentUpdateArg(AbstractHint hint, PlayerDisplay playerDisplay, TimeSpan defaultUpdateDelay)
         {
             Hint = hint;
@@ -23,5 +14,16 @@ namespace HintServiceMeow.Core.Models.Arguments
             NextUpdateDelay = defaultUpdateDelay;
             DefaultUpdateDelay = defaultUpdateDelay;
         }
+
+        public AbstractHint Hint { get; }
+
+        public PlayerDisplay PlayerDisplay { get; }
+
+        /// <summary>
+        /// Gets or sets the delay before the next update. Count in seconds.
+        /// </summary>
+        public TimeSpan NextUpdateDelay { get; set; }
+
+        public TimeSpan DefaultUpdateDelay { get; set; }
     }
 }

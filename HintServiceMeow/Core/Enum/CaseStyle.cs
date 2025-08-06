@@ -5,6 +5,6 @@
         Allcaps,
         Lowercase,
         Smallcaps,
-        Uppercase
+        Uppercase,
     }
 }

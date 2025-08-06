@@ -1,32 +1,34 @@
-﻿using HintServiceMeow.Core.Models.Arguments;
-
-namespace HintServiceMeow.Core.Models.HintContent
+﻿namespace HintServiceMeow.Core.Models.HintContent
 {
+    using HintServiceMeow.Core.Models.Arguments;
+
     public class StringContent : AbstractHintContent
     {
-        private string _text = string.Empty;
+        private string? text = string.Empty;
 
-        public string Text
+        public StringContent(string? content)
         {
-            get => _text;
+            Text = content;
+        }
+
+        public string? Text
+        {
+            get => text;
             set
             {
-                if (_text == value)
+                if (text == value)
                     return;
 
-                _text = value;
+                text = value;
 
                 OnUpdated();
             }
         }
 
-        public StringContent(string content)
+        public override string? GetText() => Text;
+
+        public override void TryUpdate(ContentUpdateArg ev)
         {
-            this.Text = content;
         }
-
-        public override string GetText() => Text;
-
-        public override void TryUpdate(ContentUpdateArg ev) { }
     }
 }
