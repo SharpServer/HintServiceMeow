@@ -11,13 +11,13 @@
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
     <Configurations>Debug;Exiled;Release</Configurations>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <ErrorReport>prompt</ErrorReport>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
@@ -35,6 +35,7 @@
     <PackageReference Include="Northwood.LabAPI" Version="$(LabAPIVersion)" IncludeAssets="compile" PrivateAssets="all" />
     <PackageReference Include="Lib.Harmony" Version="$(HarmonyVersion)" IncludeAssets="compile" PrivateAssets="all" />
     <PackageReference Include="YamlDotNet" Version="$(YamlDotNetVersion)" IncludeAssets="compile" PrivateAssets="all" />
+    <PackageReference Include="StyleCop.Analyzers" Version="$(StyleCopVersion)" IncludeAssets="All" PrivateAssets="All" />
   </ItemGroup>
 
   <ItemGroup>

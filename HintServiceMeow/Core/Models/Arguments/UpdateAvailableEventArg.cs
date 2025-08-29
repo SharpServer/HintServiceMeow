@@ -1,17 +1,17 @@
-﻿using HintServiceMeow.Core.Utilities;
-
-namespace HintServiceMeow.Core.Models.Arguments
+﻿namespace HintServiceMeow.Core.Models.Arguments
 {
+    using HintServiceMeow.Core.Utilities;
+
     /// <summary>
-    /// Argument for UpdateAvailable Event
+    /// Argument for UpdateAvailable Event.
     /// </summary>
     public class UpdateAvailableEventArg
     {
-        public PlayerDisplay PlayerDisplay { get; set; }
-
         internal UpdateAvailableEventArg(PlayerDisplay playerDisplay)
         {
-            this.PlayerDisplay = playerDisplay;
+            PlayerDisplay = playerDisplay;
         }
+
+        public PlayerDisplay PlayerDisplay { get; set; }
     }
 }

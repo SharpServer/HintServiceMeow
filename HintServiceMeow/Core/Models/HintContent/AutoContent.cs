@@ -1,59 +1,61 @@
-﻿using HintServiceMeow.Core.Models.Arguments;
-using HintServiceMeow.Core.Utilities.Tools;
-using System;
-
-namespace HintServiceMeow.Core.Models.HintContent
+﻿namespace HintServiceMeow.Core.Models.HintContent
 {
+    using System;
+
+    using HintServiceMeow.Core.Models.Arguments;
+    using HintServiceMeow.Core.Utilities.Tools;
+
     public class AutoContent : AbstractHintContent
     {
-        private DateTime _nextUpdateTime;
-        private TimeSpan _defaultUpdateTime = TimeSpan.FromSeconds(0.1);
+        private DateTime nextUpdateTime;
+        private TimeSpan defaultUpdateTime = TimeSpan.FromSeconds(0.1);
 
-        private string _text;
+        private string? text;
 
-        public delegate string TextUpdateHandler(AutoContentUpdateArg ev);
-        private TextUpdateHandler _autoText;
+        private TextUpdateHandler? autoText;
 
-        public AutoContent(TextUpdateHandler autoText)
+        public AutoContent(TextUpdateHandler? autoText)
         {
-            _autoText = autoText;
+            this.autoText = autoText;
         }
 
-        public TextUpdateHandler AutoText
+        public delegate string TextUpdateHandler(AutoContentUpdateArg ev);
+
+        public TextUpdateHandler? AutoText
         {
-            get => _autoText;
+            get => autoText;
             set
             {
-                _autoText = value;
-                _nextUpdateTime = DateTime.MinValue;// Reset Update Time
+                autoText = value;
+                nextUpdateTime = DateTime.MinValue;// Reset Update Time
             }
         }
 
-        public override string GetText() => _text;
+        public override string? GetText() => text;
 
         public override void TryUpdate(ContentUpdateArg ev)
         {
-            if (_nextUpdateTime > DateTime.Now)
+            if (nextUpdateTime > DateTime.Now)
                 return;
 
-            AutoContentUpdateArg autoContentUpdateArg = new AutoContentUpdateArg(ev.Hint, ev.PlayerDisplay, _defaultUpdateTime);
+            AutoContentUpdateArg autoContentUpdateArg = new(ev.Hint, ev.PlayerDisplay, defaultUpdateTime);
 
             try
             {
-                string newText = _autoText.Invoke(autoContentUpdateArg);
+                string? newText = autoText?.Invoke(autoContentUpdateArg);
 
-                if (_text != newText)
+                if (text != newText)
                 {
-                    _text = newText;
+                    text = newText;
                     OnUpdated();
                 }
 
-                _nextUpdateTime = DateTime.Now.Add(autoContentUpdateArg.NextUpdateDelay);
-                _defaultUpdateTime = autoContentUpdateArg.DefaultUpdateDelay;
+                nextUpdateTime = DateTime.Now.Add(autoContentUpdateArg.NextUpdateDelay);
+                defaultUpdateTime = autoContentUpdateArg.DefaultUpdateDelay;
             }
             catch (Exception ex)
             {
-                _text = string.Empty;
+                text = string.Empty;
                 Logger.Instance.Error(ex);
             }
         }

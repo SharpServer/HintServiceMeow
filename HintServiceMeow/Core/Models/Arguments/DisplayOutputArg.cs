@@ -1,16 +1,17 @@
-﻿using HintServiceMeow.Core.Utilities;
-
-namespace HintServiceMeow.Core.Models.Arguments
+﻿namespace HintServiceMeow.Core.Models.Arguments
 {
+    using HintServiceMeow.Core.Utilities;
+
     public class DisplayOutputArg
     {
-        public PlayerDisplay PlayerDisplay { get; }
-        public string Content { get; }
-
         internal DisplayOutputArg(PlayerDisplay playerDisplay, string content)
         {
-            this.PlayerDisplay = playerDisplay;
-            this.Content = content;
+            PlayerDisplay = playerDisplay;
+            Content = content;
         }
+
+        public PlayerDisplay PlayerDisplay { get; }
+
+        public string Content { get; }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using HintServiceMeow.Core.Utilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
+using System.Threading;
 
 namespace HintServiceMeow.Tests
 {
@@ -8,24 +9,22 @@ namespace HintServiceMeow.Tests
     public class CacheTests
     {
         [TestMethod]
-        [ExpectedException(typeof(ArgumentOutOfRangeException))]
         public void Constructor_Throws_OnInvalidMaxSize()
         {
-            var cache = new Cache<string, int>(0);
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => new Cache<string, int>(0));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
         public void Add_Throws_OnNullKey()
         {
-            var cache = new Cache<string, int>(5);
-            cache.Add(null, 1);
+            Cache<string, int> cache = new(5);
+            Assert.ThrowsExactly<ArgumentNullException>(() => cache.Add(null!, 1));
         }
 
         [TestMethod]
         public void Add_And_TryGet_ReturnsCorrectValue()
         {
-            var cache = new Cache<string, int>(3);
+            Cache<string, int> cache = new(3);
             cache.Add("a", 1);
             cache.Add("b", 2);
 
@@ -39,7 +38,7 @@ namespace HintServiceMeow.Tests
         [TestMethod]
         public void TryRemove_RemovesItem_And_ReturnsValue()
         {
-            var cache = new Cache<string, int>(3);
+            Cache<string, int> cache = new(3);
             cache.Add("a", 1);
             cache.Add("b", 2);
 
@@ -53,7 +52,7 @@ namespace HintServiceMeow.Tests
         [TestMethod]
         public void Add_Replaces_OldValue()
         {
-            var cache = new Cache<string, int>(3);
+            Cache<string, int> cache = new(3);
             cache.Add("a", 1);
             cache.Add("a", 2);
 
@@ -64,7 +63,7 @@ namespace HintServiceMeow.Tests
         [TestMethod]
         public void Capacity_Is_Respected_And_LRU_Removed()
         {
-            var cache = new Cache<string, int>(2);
+            Cache<string, int> cache = new(2);
             cache.Add("a", 1);
             cache.Add("b", 2);
 
@@ -79,7 +78,7 @@ namespace HintServiceMeow.Tests
         [TestMethod]
         public void Access_Updates_LRU_Order()
         {
-            var cache = new Cache<string, int>(2);
+            Cache<string, int> cache = new(2);
             cache.Add("a", 1); // a
             cache.Add("b", 2); // b,a
             cache.TryGet("a", out _); // a,b
@@ -93,7 +92,7 @@ namespace HintServiceMeow.Tests
         [TestMethod]
         public void TryRemove_OnNonExistentKey_DoesNothing()
         {
-            var cache = new Cache<string, int>(2);
+            Cache<string, int> cache = new(2);
             cache.Add("a", 1);
             Assert.IsFalse(cache.TryRemove("x", out _));
         }
@@ -101,7 +100,7 @@ namespace HintServiceMeow.Tests
         [TestMethod]
         public void Multiple_Keys_Work()
         {
-            var cache = new Cache<int, string>(10);
+            Cache<int, string> cache = new(10);
             for (int i = 0; i < 10; i++)
                 cache.Add(i, i.ToString());
 
@@ -112,14 +111,14 @@ namespace HintServiceMeow.Tests
         [TestMethod]
         public void Cache_Thread_Safety()
         {
-            var cache = new Cache<int, int>(1000);
-            var random = new Random();
-            int threadCount = 8;
-            var threads = new System.Threading.Thread[threadCount];
+            Cache<int, int> cache = new(1000);
+            Random random = new();
+            const int threadCount = 8;
+            Thread[] threads = new Thread[threadCount];
 
             for (int t = 0; t < threadCount; t++)
             {
-                threads[t] = new System.Threading.Thread(() =>
+                threads[t] = new Thread(() =>
                 {
                     for (int i = 0; i < 5000; i++)
                     {
@@ -131,8 +130,8 @@ namespace HintServiceMeow.Tests
                 });
             }
 
-            foreach (var th in threads) th.Start();
-            foreach (var th in threads) th.Join();
+            foreach (Thread? th in threads) th.Start();
+            foreach (Thread? th in threads) th.Join();
 
             // No exception = passed test
             Assert.IsTrue(true);

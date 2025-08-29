@@ -1,9 +1,9 @@
-﻿using HintServiceMeow.Core.Interface;
-
-namespace HintServiceMeow.Core.Utilities.Tools
+﻿namespace HintServiceMeow.Core.Utilities.Tools
 {
+    using HintServiceMeow.Core.Interface;
+
     /// <summary>
-    /// Used for log messages
+    /// Used for log messages.
     /// </summary>
     public class Logger : ILogger
     {

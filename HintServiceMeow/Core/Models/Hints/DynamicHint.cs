@@ -1,25 +1,25 @@
-﻿using HintServiceMeow.Core.Enum;
-
-namespace HintServiceMeow.Core.Models.Hints
+﻿namespace HintServiceMeow.Core.Models.Hints
 {
+    using HintServiceMeow.Core.Enum;
+
     public class DynamicHint : AbstractHint
     {
-        private float _topBoundary = 0;
-        private float _bottomBoundary = 1000;
+        private float topBoundary = 0;
+        private float bottomBoundary = 1000;
 
-        private float _leftBoundary = -1200;
-        private float _rightBoundary = 1200;
+        private float leftBoundary = -1200;
+        private float rightBoundary = 1200;
 
-        private float _targetY = 700;
-        private float _targetX = 0;
+        private float targetY = 700;
+        private float targetX = 0;
 
-        private float _topMargin = 5;
-        private float _bottomMargin = 5;
-        private float _leftMargin = 100;
-        private float _rightMargin = 100;
+        private float topMargin = 5;
+        private float bottomMargin = 5;
+        private float leftMargin = 100;
+        private float rightMargin = 100;
 
-        private HintPriority _priority = HintPriority.Medium;
-        private DynamicHintStrategy _strategy = DynamicHintStrategy.Hide;
+        private HintPriority priority = HintPriority.Medium;
+        private DynamicHintStrategy strategy = DynamicHintStrategy.Hide;
 
         #region Constructors
 
@@ -27,27 +27,28 @@ namespace HintServiceMeow.Core.Models.Hints
         {
         }
 
-        public DynamicHint(DynamicHint hint) : base(hint)
+        public DynamicHint(DynamicHint hint)
+            : base(hint)
         {
             Lock.EnterWriteLock();
             try
             {
-                this._topBoundary = hint._topBoundary;
-                this._bottomBoundary = hint._bottomBoundary;
+                topBoundary = hint.topBoundary;
+                bottomBoundary = hint.bottomBoundary;
 
-                this._leftBoundary = hint._leftBoundary;
-                this._rightBoundary = hint._rightBoundary;
+                leftBoundary = hint.leftBoundary;
+                rightBoundary = hint.rightBoundary;
 
-                this._targetY = hint._targetY;
-                this._targetX = hint._targetX;
+                targetY = hint.targetY;
+                targetX = hint.targetX;
 
-                this._topMargin = hint._topMargin;
-                this._bottomMargin = hint._bottomMargin;
-                this._leftMargin = hint._leftMargin;
-                this._rightMargin = hint._rightMargin;
+                topMargin = hint.topMargin;
+                bottomMargin = hint.bottomMargin;
+                leftMargin = hint.leftMargin;
+                rightMargin = hint.rightMargin;
 
-                this._priority = hint._priority;
-                this._strategy = hint._strategy;
+                priority = hint.priority;
+                strategy = hint.strategy;
             }
             finally
             {
@@ -58,7 +59,7 @@ namespace HintServiceMeow.Core.Models.Hints
         #endregion
 
         /// <summary>
-        /// The top boundary of the dynamic hint
+        /// Gets or sets the top boundary of the dynamic hint.
         /// </summary>
         public float TopBoundary
         {
@@ -67,22 +68,23 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _topBoundary;
+                    return topBoundary;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    if (_topBoundary.Equals(value))
+                    if (topBoundary.Equals(value))
                         return;
 
-                    _topBoundary = value;
+                    topBoundary = value;
                     OnHintUpdated("TopBoundary");
                 }
                 finally
@@ -93,7 +95,7 @@ namespace HintServiceMeow.Core.Models.Hints
         }
 
         /// <summary>
-        /// The bottom boundary of the dynamic hint
+        /// Gets or sets the bottom boundary of the dynamic hint.
         /// </summary>
         public float BottomBoundary
         {
@@ -102,22 +104,23 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _bottomBoundary;
+                    return bottomBoundary;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    if (_bottomBoundary.Equals(value))
+                    if (bottomBoundary.Equals(value))
                         return;
 
-                    _bottomBoundary = value;
+                    bottomBoundary = value;
                     OnHintUpdated("BottomBoundary");
                 }
                 finally
@@ -128,7 +131,7 @@ namespace HintServiceMeow.Core.Models.Hints
         }
 
         /// <summary>
-        /// The left boundary of the dynamic hint. Should be more than -1200
+        /// Gets or sets the left boundary of the dynamic hint. Should be more than -1200.
         /// </summary>
         public float LeftBoundary
         {
@@ -137,22 +140,23 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _leftBoundary;
+                    return leftBoundary;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    if (_leftBoundary.Equals(value))
+                    if (leftBoundary.Equals(value))
                         return;
 
-                    _leftBoundary = value;
+                    leftBoundary = value;
                     OnHintUpdated("LeftBoundary");
                 }
                 finally
@@ -163,7 +167,7 @@ namespace HintServiceMeow.Core.Models.Hints
         }
 
         /// <summary>
-        /// The right boundary of the dynamic hint. Should be less than 1200
+        /// Gets or sets the right boundary of the dynamic hint. Should be less than 1200.
         /// </summary>
         public float RightBoundary
         {
@@ -172,22 +176,23 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _rightBoundary;
+                    return rightBoundary;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    if (_rightBoundary.Equals(value))
+                    if (rightBoundary.Equals(value))
                         return;
 
-                    _rightBoundary = value;
+                    rightBoundary = value;
                     OnHintUpdated("RightBoundary");
                 }
                 finally
@@ -198,7 +203,7 @@ namespace HintServiceMeow.Core.Models.Hints
         }
 
         /// <summary>
-        /// The Y coordinate that dynamic hint will try to reach
+        /// Gets or sets the Y coordinate that dynamic hint will try to reach.
         /// </summary>
         public float TargetY
         {
@@ -207,22 +212,23 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _targetY;
+                    return targetY;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    if (_targetY.Equals(value))
+                    if (targetY.Equals(value))
                         return;
 
-                    _targetY = value;
+                    targetY = value;
                     OnHintUpdated("TargetY");
                 }
                 finally
@@ -233,7 +239,7 @@ namespace HintServiceMeow.Core.Models.Hints
         }
 
         /// <summary>
-        /// The X coordinate that dynamic hint will try to reach
+        /// Gets or sets the X coordinate that dynamic hint will try to reach.
         /// </summary>
         public float TargetX
         {
@@ -242,22 +248,23 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _targetX;
+                    return targetX;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    if (_targetX.Equals(value))
+                    if (targetX.Equals(value))
                         return;
 
-                    _targetX = value;
+                    targetX = value;
                     OnHintUpdated("TargetX");
                 }
                 finally
@@ -274,22 +281,23 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _topMargin;
+                    return topMargin;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    if (_topMargin.Equals(value))
+                    if (topMargin.Equals(value))
                         return;
 
-                    _topMargin = value;
+                    topMargin = value;
                     OnHintUpdated("TopMargin");
                 }
                 finally
@@ -306,22 +314,23 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _bottomMargin;
+                    return bottomMargin;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    if (_bottomMargin.Equals(value))
+                    if (bottomMargin.Equals(value))
                         return;
 
-                    _bottomMargin = value;
+                    bottomMargin = value;
                     OnHintUpdated("BottomMargin");
                 }
                 finally
@@ -338,22 +347,23 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _leftMargin;
+                    return leftMargin;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    if (_leftMargin.Equals(value))
+                    if (leftMargin.Equals(value))
                         return;
 
-                    _leftMargin = value;
+                    leftMargin = value;
                     OnHintUpdated("LeftMargin");
                 }
                 finally
@@ -370,22 +380,23 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _rightMargin;
+                    return rightMargin;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    if (_rightMargin.Equals(value))
+                    if (rightMargin.Equals(value))
                         return;
 
-                    _rightMargin = value;
+                    rightMargin = value;
                     OnHintUpdated("RightMargin");
                 }
                 finally
@@ -396,7 +407,7 @@ namespace HintServiceMeow.Core.Models.Hints
         }
 
         /// <summary>
-        /// The priority of the hint, higher priority means the hint is less likely to be covered by other hint.
+        /// Gets or sets the priority of the hint, higher priority means the hint is less likely to be covered by other hint.
         /// </summary>
         public HintPriority Priority
         {
@@ -405,22 +416,23 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _priority;
+                    return priority;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    if (_priority == value)
+                    if (priority == value)
                         return;
 
-                    _priority = value;
+                    priority = value;
                     OnHintUpdated("Priority");
                 }
                 finally
@@ -437,22 +449,23 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _strategy;
+                    return strategy;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    if (_strategy == value)
+                    if (strategy == value)
                         return;
 
-                    _strategy = value;
+                    strategy = value;
                     OnHintUpdated("Strategy");
                 }
                 finally
@@ -462,5 +475,4 @@ namespace HintServiceMeow.Core.Models.Hints
             }
         }
     }
-
 }

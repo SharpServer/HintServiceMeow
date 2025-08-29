@@ -1,14 +1,15 @@
-﻿using HintServiceMeow.Core.Models.Arguments;
-using HintServiceMeow.Core.Utilities.Tools;
-using System;
-
-namespace HintServiceMeow.Core.Models.HintContent
+﻿namespace HintServiceMeow.Core.Models.HintContent
 {
+    using System;
+
+    using HintServiceMeow.Core.Models.Arguments;
+    using HintServiceMeow.Core.Utilities.Tools;
+
     public abstract class AbstractHintContent
     {
         public delegate void UpdateHandler();
 
-        public event UpdateHandler ContentUpdated;
+        public event UpdateHandler? ContentUpdated;
 
         public void OnUpdated()
         {
@@ -24,6 +25,6 @@ namespace HintServiceMeow.Core.Models.HintContent
 
         public abstract void TryUpdate(ContentUpdateArg ev);
 
-        public abstract string GetText();
+        public abstract string? GetText();
     }
 }

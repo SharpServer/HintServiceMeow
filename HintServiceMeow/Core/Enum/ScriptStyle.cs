@@ -3,6 +3,6 @@
     internal enum ScriptStyle
     {
         Subscript,
-        Superscript
+        Superscript,
     }
 }

@@ -1,39 +1,33 @@
-﻿using HintServiceMeow.Core.Enum;
-using HintServiceMeow.Core.Interface;
-using HintServiceMeow.Core.Models.Arguments;
-using HintServiceMeow.Core.Models.HintContent;
-using HintServiceMeow.Core.Utilities;
-using HintServiceMeow.Core.Utilities.Tools;
-using System;
-using System.ComponentModel;
-using System.Threading;
-
-namespace HintServiceMeow.Core.Models.Hints
+﻿namespace HintServiceMeow.Core.Models.Hints
 {
+    using System;
+    using System.ComponentModel;
+    using System.Threading;
+
+    using HintServiceMeow.Core.Enum;
+    using HintServiceMeow.Core.Interface;
+    using HintServiceMeow.Core.Models.Arguments;
+    using HintServiceMeow.Core.Models.HintContent;
+    using HintServiceMeow.Core.Utilities;
+    using HintServiceMeow.Core.Utilities.Tools;
+
     public abstract class AbstractHint : INotifyPropertyChanged
     {
-        protected ReaderWriterLockSlim Lock = new(LockRecursionPolicy.SupportsRecursion);
+        private readonly Guid guid = Guid.NewGuid();
 
-        private IUpdateAnalyser _analyser = new UpdateAnalyzer();
+        private IUpdateAnalyser analyser = new UpdateAnalyzer();
 
-        private readonly Guid _guid = Guid.NewGuid();
-        private string _id = string.Empty;
+        private string id = string.Empty;
 
-        private HintSyncSpeed _syncSpeed = HintSyncSpeed.Normal;
+        private HintSyncSpeed syncSpeed = HintSyncSpeed.Normal;
 
-        private int _fontSize = 20;
+        private int fontSize = 20;
 
-        private float _lineHeight = 0;
+        private float lineHeight;
 
-        private AbstractHintContent _content = new StringContent("");
+        private AbstractHintContent content = new StringContent(string.Empty);
 
-        private bool _hide = false;
-
-        #region Events
-
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        #endregion
+        private bool hide;
 
         #region Constructors
 
@@ -46,23 +40,25 @@ namespace HintServiceMeow.Core.Models.Hints
             Lock.EnterWriteLock();
             try
             {
-                this._id = hint._id;
-                this._syncSpeed = hint._syncSpeed;
-                this._fontSize = hint._fontSize;
-                this._lineHeight = hint._lineHeight;
-                this._content = hint._content;
-                this._hide = hint._hide;
+                id = hint.id;
+                syncSpeed = hint.syncSpeed;
+                fontSize = hint.fontSize;
+                lineHeight = hint.lineHeight;
+                content = hint.content;
+                hide = hint.hide;
             }
             finally
             {
                 Lock.ExitWriteLock();
             }
         }
+        #endregion
 
+        #region Events
+        public event PropertyChangedEventHandler? PropertyChanged;
         #endregion
 
         #region Properties
-
         public IUpdateAnalyser UpdateAnalyser
         {
             get
@@ -70,19 +66,20 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _analyser;
+                    return analyser;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    _analyser = value;
+                    analyser = value;
                 }
                 finally
                 {
@@ -98,7 +95,7 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _guid;
+                    return guid;
                 }
                 finally
                 {
@@ -114,19 +111,20 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _id;
+                    return id;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    _id = value;
+                    id = value;
                 }
                 finally
                 {
@@ -142,22 +140,23 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _syncSpeed;
+                    return syncSpeed;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    if (_syncSpeed == value)
+                    if (syncSpeed == value)
                         return;
 
-                    _syncSpeed = value;
+                    syncSpeed = value;
                     OnHintUpdated("SyncSpeed");
                 }
                 finally
@@ -174,22 +173,23 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _fontSize;
+                    return fontSize;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    if (_fontSize == value)
+                    if (fontSize == value)
                         return;
 
-                    _fontSize = value;
+                    fontSize = value;
                     OnHintUpdated("FontSize");
                 }
                 finally
@@ -206,22 +206,23 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _lineHeight;
+                    return lineHeight;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    if (_lineHeight.Equals(value))
+                    if (lineHeight.Equals(value))
                         return;
 
-                    _lineHeight = value;
+                    lineHeight = value;
                     OnHintUpdated("LineHeight");
                 }
                 finally
@@ -238,23 +239,24 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _content;
+                    return content;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    if (_content == value)
+                    if (content == value)
                         return;
 
-                    _content = value;
-                    _content.ContentUpdated += () => OnHintUpdated("Content");
+                    content = value;
+                    content.ContentUpdated += () => OnHintUpdated("Content");
                     OnHintUpdated("Content");
                 }
                 finally
@@ -264,7 +266,7 @@ namespace HintServiceMeow.Core.Models.Hints
             }
         }
 
-        public string Text
+        public string? Text
         {
             get
             {
@@ -283,6 +285,7 @@ namespace HintServiceMeow.Core.Models.Hints
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
@@ -310,16 +313,16 @@ namespace HintServiceMeow.Core.Models.Hints
             }
         }
 
-        public AutoContent.TextUpdateHandler AutoText
+        public AutoContent.TextUpdateHandler? AutoText
         {
             get
             {
                 Lock.EnterReadLock();
                 try
                 {
-                    if (Content is AutoContent content)
+                    if (Content is AutoContent autoContent)
                     {
-                        return content.AutoText;
+                        return autoContent.AutoText;
                     }
 
                     return null;
@@ -329,6 +332,7 @@ namespace HintServiceMeow.Core.Models.Hints
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
@@ -351,22 +355,23 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _hide;
+                    return hide;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    if (_hide == value)
+                    if (hide == value)
                         return;
 
-                    _hide = value;
+                    hide = value;
                     OnHintUpdated("Hide");
                 }
                 finally
@@ -376,6 +381,7 @@ namespace HintServiceMeow.Core.Models.Hints
             }
         }
 
+        protected ReaderWriterLockSlim Lock { get; } = new(LockRecursionPolicy.SupportsRecursion);
         #endregion
 
         #region Methods
@@ -387,7 +393,7 @@ namespace HintServiceMeow.Core.Models.Hints
 
         protected virtual void OnHintUpdated(string argumentName)
         {
-            _analyser.OnUpdate();
+            analyser.OnUpdate();
 
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(argumentName));
         }

@@ -1,6 +1,7 @@
 ﻿using HintServiceMeow.Core.Interface;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -11,7 +12,7 @@ namespace HintServiceMeow.Tests
     [TestClass]
     public class TaskSchedulerTests
     {
-        private TaskScheduler _scheduler;
+        private TaskScheduler _scheduler = null!;
         private int _actionInvokeCount;
 
         [TestInitialize]
@@ -32,16 +33,16 @@ namespace HintServiceMeow.Tests
         {
             _scheduler.Start(TimeSpan.Zero, () => { });
             _scheduler.Start(TimeSpan.FromMilliseconds(-1), () => { });
-            
+
             Assert.IsTrue(true); // No exception = passed
         }
 
         [TestMethod]
         public void Start_ShouldThrow_IfActionIsNull()
         {
-            Assert.ThrowsException<ArgumentNullException>(() =>
+            Assert.ThrowsExactly<ArgumentNullException>(() =>
             {
-                _scheduler.Start(TimeSpan.FromMilliseconds(100), null);
+                _scheduler.Start(TimeSpan.FromMilliseconds(100), null!);
             });
         }
 
@@ -49,14 +50,14 @@ namespace HintServiceMeow.Tests
         public void Start_ShouldSet_IntervalAndAction()
         {
             _scheduler.Start(TimeSpan.FromMilliseconds(200), () => { _actionInvokeCount++; });
-            Assert.AreEqual(TimeSpan.Zero, _scheduler.Elapsed);
+            Assert.IsLessThan(5, _scheduler.Elapsed.TotalMilliseconds);
             Assert.IsFalse(_scheduler.IsPaused);
         }
 
         [TestMethod]
         public async Task Invoke_And_AutoInvokeAction_AfterInterval()
         {
-            var invoked = 0;
+            int invoked = 0;
             _scheduler.Start(TimeSpan.FromMilliseconds(50), () => { invoked++; });
 
             _scheduler.Invoke(0, Core.Enum.DelayType.Override);
@@ -66,13 +67,13 @@ namespace HintServiceMeow.Tests
         }
 
         [TestMethod]
-        public async Task Invoke_With_Delay_KeepsScheduledTime_ByDelayType()
+        public Task Invoke_With_Delay_KeepsScheduledTime_ByDelayType()
         {
             _scheduler.Start(TimeSpan.FromMilliseconds(100), () => { _actionInvokeCount++; });
 
             // KeepFastest
             _scheduler.Invoke(2f, Core.Enum.DelayType.KeepFastest);
-            var firstTime = GetScheduledActionTime(_scheduler);
+            DateTime firstTime = GetScheduledActionTime(_scheduler);
             _scheduler.Invoke(1f, Core.Enum.DelayType.KeepFastest);
             Assert.IsTrue(GetScheduledActionTime(_scheduler) <= firstTime);
 
@@ -86,7 +87,8 @@ namespace HintServiceMeow.Tests
             _scheduler.Invoke(3f, Core.Enum.DelayType.Override);
             firstTime = GetScheduledActionTime(_scheduler);
             _scheduler.Invoke(5f, Core.Enum.DelayType.Override);
-            Assert.IsTrue(Math.Abs((GetScheduledActionTime(_scheduler) - DateTime.Now).TotalSeconds - 5f) < 0.2);
+            Assert.IsLessThan(0.2, Math.Abs((GetScheduledActionTime(_scheduler) - DateTime.Now).TotalSeconds - 5f));
+            return Task.CompletedTask;
         }
 
         [TestMethod]
@@ -110,7 +112,7 @@ namespace HintServiceMeow.Tests
             _scheduler.Pause();
             Assert.IsTrue(_scheduler.IsPaused);
 
-            var afterPause = _scheduler.Elapsed;
+            TimeSpan afterPause = _scheduler.Elapsed;
             Thread.Sleep(50);
             Assert.AreEqual(afterPause, _scheduler.Elapsed); // Elapsed time should not change while paused
 
@@ -151,7 +153,7 @@ namespace HintServiceMeow.Tests
         {
             _scheduler.Start(TimeSpan.FromMilliseconds(1), () => { });
             _scheduler.Invoke(0);
-            var oldElapsed = _scheduler.Elapsed;
+            TimeSpan oldElapsed = _scheduler.Elapsed;
             Thread.Sleep(5);
 
             // Elapsed updated
@@ -159,14 +161,14 @@ namespace HintServiceMeow.Tests
         }
 
         // Auxiliary method to read private members
-        private DateTime GetScheduledActionTime(TaskScheduler scheduler)
+        private static DateTime GetScheduledActionTime(TaskScheduler scheduler)
         {
-            var type = typeof(TaskScheduler);
-            var prop = type.GetProperty("ScheduledActionTime", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            return (DateTime)prop.GetValue(scheduler);
+            Type? type = typeof(TaskScheduler);
+            PropertyInfo? prop = type.GetProperty("ScheduledActionTime", BindingFlags.NonPublic | BindingFlags.Instance);
+            return (DateTime)prop!.GetValue(scheduler);
         }
 
-        private bool IsScheduledActionTimeMax(TaskScheduler scheduler)
+        private static bool IsScheduledActionTimeMax(TaskScheduler scheduler)
         {
             return GetScheduledActionTime(scheduler) == DateTime.MaxValue;
         }

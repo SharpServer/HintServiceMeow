@@ -1,74 +1,46 @@
-﻿using HintServiceMeow.Core.Utilities;
-using System.Collections.Generic;
-using System.Linq;
-
-namespace HintServiceMeow.UI.Utilities
+﻿namespace HintServiceMeow.UI.Utilities
 {
+    using System.Collections.Generic;
+    using System.Linq;
+
+    using HintServiceMeow.Core.Utilities;
+
     public class PlayerUI : Core.Interface.IDestructible
     {
-        private static readonly HashSet<PlayerUI> PlayerUIList = new();
+        private static readonly HashSet<PlayerUI> PlayerUIList = [];
 
-        public ReferenceHub ReferenceHub { get; }
-        public PlayerDisplay PlayerDisplay { get; }
-
-        public CommonHint CommonHint { get; }
-
-        #region Constructor and Destructors Methods
+        #region Constructor
 
         private PlayerUI(ReferenceHub referenceHub)
         {
-            //Initialize references
-            this.ReferenceHub = referenceHub;
-            this.PlayerDisplay = PlayerDisplay.Get(referenceHub);
+            // Initialize references
+            ReferenceHub = referenceHub;
+            PlayerDisplay = PlayerDisplay.Get(referenceHub);
 
-            //Initialize Components
+            // Initialize Components
             CommonHint = new CommonHint(referenceHub);
-            //this.Style = new Style(referenceHub);
 
-            //Add to list
+            // this.Style = new Style(referenceHub);
+            // Add to list
             PlayerUIList.Add(this);
         }
-
-        internal static void Destruct(ReferenceHub referenceHub)
-        {
-            //Get player UI
-            PlayerUI ui = PlayerUIList.FirstOrDefault(x => x.ReferenceHub == referenceHub);
-
-            if (ui == null)
-                return;
-
-            ((Core.Interface.IDestructible)ui).Destruct();
-
-            //Remove from list
-            PlayerUIList.Remove(ui);
-        }
-
-        void Core.Interface.IDestructible.Destruct()
-        {
-            //Destruct Components
-            ((Core.Interface.IDestructible)CommonHint).Destruct();
-        }
-
-        internal static void ClearInstance()
-        {
-            //Destruct Components
-            foreach (PlayerUI ui in PlayerUIList)
-            {
-                ((Core.Interface.IDestructible)ui.CommonHint).Destruct();
-            }
-
-            //Clear the list
-            PlayerUIList.Clear();
-        }
-
         #endregion
 
+        #region Properties
+        public ReferenceHub ReferenceHub { get; }
+
+        public PlayerDisplay PlayerDisplay { get; }
+
+        public CommonHint CommonHint { get; }
+        #endregion
+
+        #region Methods
         public static PlayerUI Get(ReferenceHub referenceHub)
         {
             if (referenceHub is null)
                 throw new System.ArgumentNullException(nameof(referenceHub));
 
-            PlayerUI ui = PlayerUIList.FirstOrDefault(x => x.ReferenceHub == referenceHub);
+            PlayerUI? ui = PlayerUIList.FirstOrDefault(x => x.ReferenceHub == referenceHub);
 
             return ui ?? new PlayerUI(referenceHub);
         }
@@ -81,7 +53,7 @@ namespace HintServiceMeow.UI.Utilities
             return Get(player.ReferenceHub);
         }
 
-#if EXILED
+        #if EXILED
         public static PlayerUI Get(Exiled.API.Features.Player player)
         {
             if (player is null)
@@ -89,6 +61,41 @@ namespace HintServiceMeow.UI.Utilities
 
             return Get(player.ReferenceHub);
         }
-#endif
+        #endif
+        #endregion
+
+        #region Destructor Methods
+        void Core.Interface.IDestructible.Destruct()
+        {
+            // Destruct Components
+            ((Core.Interface.IDestructible)CommonHint).Destruct();
+        }
+
+        internal static void Destruct(ReferenceHub referenceHub)
+        {
+            // Get player UI
+            PlayerUI? ui = PlayerUIList.FirstOrDefault(x => x.ReferenceHub == referenceHub);
+
+            if (ui == null)
+                return;
+
+            ((Core.Interface.IDestructible)ui).Destruct();
+
+            // Remove from list
+            PlayerUIList.Remove(ui);
+        }
+
+        internal static void ClearInstance()
+        {
+            // Destruct Components
+            foreach (PlayerUI ui in PlayerUIList)
+            {
+                ((Core.Interface.IDestructible)ui.CommonHint).Destruct();
+            }
+
+            // Clear the list
+            PlayerUIList.Clear();
+        }
+        #endregion
     }
 }

@@ -1,7 +1,7 @@
-﻿using System;
-
-namespace HintServiceMeow.Core.Interface
+﻿namespace HintServiceMeow.Core.Interface
 {
+    using System;
+
     public interface IUpdateAnalyser
     {
         void OnUpdate();

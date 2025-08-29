@@ -1,18 +1,19 @@
-﻿using HintServiceMeow.Core.Interface;
-using System.Collections.Concurrent;
-using System.Text;
-
-namespace HintServiceMeow.Core.Utilities.Pools
+﻿namespace HintServiceMeow.Core.Utilities.Pools
 {
+    using System.Collections.Concurrent;
+    using System.Text;
+
+    using HintServiceMeow.Core.Interface;
+
     internal class StringBuilderPool : IPool<StringBuilder>
     {
-        public static StringBuilderPool Instance { get; } = new();
+        private readonly ConcurrentBag<StringBuilder> stringBuilderQueue = [];
 
-        private readonly ConcurrentBag<StringBuilder> StringBuilderQueue = new();
+        public static StringBuilderPool Instance { get; } = new();
 
         public StringBuilder Rent()
         {
-            if (StringBuilderQueue.TryTake(out StringBuilder sb))
+            if (stringBuilderQueue.TryTake(out StringBuilder sb))
             {
                 return sb;
             }
@@ -24,7 +25,7 @@ namespace HintServiceMeow.Core.Utilities.Pools
         {
             sb.Clear();
 
-            StringBuilderQueue.Add(sb);
+            stringBuilderQueue.Add(sb);
         }
 
         public string ToStringReturn(StringBuilder sb)

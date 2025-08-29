@@ -2,15 +2,17 @@
 {
     public class CompatibilityAdaptorArg
     {
-        public string AssemblyName { get; }
-        public string Content { get; }
-        public float Duration { get; }
-
-        internal CompatibilityAdaptorArg(string assemblyName, string content, float duration)
+        internal CompatibilityAdaptorArg(string assemblyName, string? content, float duration)
         {
-            this.AssemblyName = assemblyName;
-            this.Content = content;
-            this.Duration = duration;
+            AssemblyName = assemblyName;
+            Content = content;
+            Duration = duration;
         }
+
+        public string AssemblyName { get; }
+
+        public string? Content { get; }
+
+        public float Duration { get; }
     }
 }
