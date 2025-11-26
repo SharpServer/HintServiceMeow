@@ -42,6 +42,8 @@
 
         private Task? currentParserTask;
 
+        private bool isDestroyed = false;
+
         internal PlayerDisplay(
             IPlayerContext playerContext,
             HintCollection? displayHints = null,
@@ -393,6 +395,8 @@
 
         void IDestructible.Destruct()
         {
+            isDestroyed = true; // Mark as destroyed to prevent further actions
+
             Timing.KillCoroutines(coroutine); // Stop coroutine
             UpdateAvailable = null; // Clear event
 
@@ -588,15 +592,25 @@
 
             TimeSpan maxWaitingTimeSpan = TimeSpan.FromSeconds(maxWaitingTime);
             DateTime now = DateTime.Now;
+            DateTime delayedUpdateTime = now;
 
-            DateTime delayedUpdateTime = predictingHints
-                .Select(h => h.UpdateAnalyser.EstimateNextUpdate())
-                .Where(x => x - now >= TimeSpan.Zero && x - now <= maxWaitingTimeSpan)
-                .DefaultIfEmpty(now)
-                .Max();
+            foreach (var h in predictingHints)
+            {
+                DateTime x = h.UpdateAnalyser.EstimateNextUpdate();
+                TimeSpan delta = x - now;
+
+                // Only consider the updates that will happen within the max waiting time
+                if (delta >= TimeSpan.Zero && delta <= maxWaitingTimeSpan)
+                {
+                    if (x > delayedUpdateTime)
+                    {
+                        delayedUpdateTime = x;
+                    }
+                }
+            }
 
             float delay = (float)(delayedUpdateTime - now).TotalSeconds;
-            delay = Math.Max(maxWaitingTime, delay * 1.1f); // Increase by 10% to make increase hit rate of prediction
+            delay = Math.Max(maxWaitingTime, delay * 1.1f); // Increase by 10% to increase hit rate of prediction
 
             if (delay <= 0)
                 updateScheduler.Invoke();
@@ -628,6 +642,10 @@
 
                         MainThreadDispatcher.Dispatch(() =>
                         {
+                            // If destroyed while waiting for main thread, skip the update
+                            if (this.isDestroyed)
+                                return;
+
                             try
                             {
                                 SendHint(richText);
@@ -638,12 +656,12 @@
                             }
                             finally
                             {
-                                updateScheduler.Resume(); // Resume action after the parser task is finishing
-
                                 lock (currentParserTaskLock)
                                 {
                                     currentParserTask = null;
                                 }
+
+                                updateScheduler.Resume(); // Resume action after the parser task is finishing
                             }
                         });
 
