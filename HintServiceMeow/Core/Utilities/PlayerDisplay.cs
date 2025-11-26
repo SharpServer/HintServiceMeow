@@ -50,6 +50,7 @@
             IHintParser? hintParser = null,
             IEnumerable<IDisplayOutput>? displayOutputs = null)
         {
+            // Initialize each components
             this.playerContext = playerContext ?? throw new ArgumentNullException(nameof(playerContext));
 
             if (displayHints != null)
@@ -62,18 +63,30 @@
             adapter = adaptor ?? new CompatibilityAdaptor(this); // Default compatibility adaptor
             this.updateScheduler = updateScheduler ?? new TaskScheduler(); // Default task scheduler with zero interval
 
+            // When collection changed, update the content on player's screen
             this.displayHints.CollectionChanged += OnCollectionChanged;
+
+            // Initialize update scheduler. Set action of the scheduler to start parser task.
             this.updateScheduler.Start(TimeSpan.Zero, () =>
             {
                 this.updateScheduler.Pause(); // Pause action until the parser task is finishing
                 StartParserTask();
             });
+
+            // Start the main coroutine on main thread
             MainThreadDispatcher.Dispatch(() => coroutine = Timing.RunCoroutine(CoroutineMethod()));
         }
 
         private PlayerDisplay(ReferenceHub referenceHub)
             : this(new ReferenceHubContext(referenceHub))
         {
+            if(referenceHub is null)
+                throw new ArgumentNullException(nameof(referenceHub));
+
+            // Check if this belongs to local player (npc)
+            if (referenceHub.isServer)
+                return;
+
             displayOutputs.Add(new DefaultDisplayOutput(referenceHub.connectionToClient));
         }
 
