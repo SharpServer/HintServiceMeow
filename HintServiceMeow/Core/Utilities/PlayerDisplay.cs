@@ -654,18 +654,23 @@
 
         private void SendHint(string text)
         {
+            IDisplayOutput[] outputsSnapshot;
+
             lock (displayOutputsLock)
             {
-                foreach (IDisplayOutput output in displayOutputs.ToArray())
-                {
-                    try
-                    {
-                        output.ShowHint(new DisplayOutputArg(this, text));
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Instance.Error(ex);
-                    }
+                outputsSnapshot = displayOutputs.ToArray();
+            }
+
+            var arg = new DisplayOutputArg(this, text);
+            foreach (IDisplayOutput output in outputsSnapshot)
+            {
+                try
+                { 
+                    output.ShowHint(arg);
+                }
+                catch (Exception ex)
+                { 
+                    Logger.Instance.Error(ex);
                 }
             }
         }
