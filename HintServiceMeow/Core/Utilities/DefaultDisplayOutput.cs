@@ -11,7 +11,7 @@
     internal class DefaultDisplayOutput : IDisplayOutput
     {
         private readonly NetworkConnection? connectionToPlayer;
-        private readonly Hints.HintMessage hintMessageTemplate = new(new Hints.TextHint(string.Empty, [new Hints.StringHintParameter(string.Empty)], [Hints.HintEffectPresets.TrailingPulseAlpha(1, 1, 1)], 99999f));
+        private readonly Hints.HintMessage hintMessageTemplate = new(new Hints.TextHint(string.Empty, [new Hints.StringHintParameter(string.Empty)], [new Hints.AlphaEffect(1)], 99999f));
 
         public DefaultDisplayOutput(NetworkConnection connectionToPlayer)
         {
