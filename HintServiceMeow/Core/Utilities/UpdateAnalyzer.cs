@@ -35,7 +35,7 @@
                 updateTimestamps.Enqueue(now);
                 while (now - updateTimestamps.Peek() > WindowInterval)
                 {
-                    updateTimestamps.Dequeue();
+                    updateTimestamps.TryDequeue(out _);
                 }
 
                 cachedTime = DateTime.MaxValue; // Reset cached time
