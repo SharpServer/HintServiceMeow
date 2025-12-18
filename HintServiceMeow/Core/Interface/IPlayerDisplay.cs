@@ -1,7 +1,6 @@
 ﻿namespace HintServiceMeow.Core.Interface
 {
     using System.Collections.Generic;
-
     using HintServiceMeow.Core.Models.Hints;
 
     public interface IPlayerDisplay

@@ -3,7 +3,6 @@
     using System;
     using System.Threading;
     using System.Threading.Tasks;
-
     using HintServiceMeow.Core.Utilities.Tools;
 
     internal class PeriodicRunner : IDisposable

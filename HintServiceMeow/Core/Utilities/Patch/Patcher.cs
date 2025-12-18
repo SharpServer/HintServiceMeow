@@ -2,7 +2,6 @@
 {
     using System;
     using System.Reflection;
-
     using HarmonyLib;
 
     public static class Patcher
@@ -28,7 +27,7 @@
             Harmony.Patch(sendHintMethod1, new HarmonyMethod(patchType.GetMethod(nameof(Patches.SendHintPatch1))));
             Harmony.Patch(sendHintMethod2, new HarmonyMethod(patchType.GetMethod(nameof(Patches.SendHintPatch2))));
 
-            #if EXILED
+#if EXILED
             // Exiled methods
             MethodInfo showHintMethod1 = typeof(Exiled.API.Features.Player).GetMethod(nameof(Exiled.API.Features.Player.ShowHint), [typeof(string), typeof(float)])!;
             MethodInfo showHintMethod2 = typeof(Exiled.API.Features.Player).GetMethod(nameof(Exiled.API.Features.Player.ShowHint), [typeof(Exiled.API.Features.Hint)])!;
@@ -40,7 +39,7 @@
             MethodInfo exiledHintPatch2 = patchType.GetMethod(nameof(Patches.ExiledHintPatch2))!;
             Harmony.Patch(showHintMethod1, new HarmonyMethod(exiledHintPatch1));
             Harmony.Patch(showHintMethod2, new HarmonyMethod(exiledHintPatch2));
-            #endif
+#endif
         }
 
         public static void Unpatch()

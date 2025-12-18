@@ -3,7 +3,6 @@
     using System;
     using System.Threading;
     using System.Threading.Tasks;
-
     using HintServiceMeow.Core.Enum;
     using HintServiceMeow.Core.Utilities.Tools;
 

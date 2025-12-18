@@ -4,7 +4,6 @@
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Threading.Tasks;
-
     using HintServiceMeow.Core.Interface;
 
     internal class ConcurrentTaskDispatcher : IConcurrentTaskDispatcher

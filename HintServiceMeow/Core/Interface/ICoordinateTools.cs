@@ -14,7 +14,7 @@
         float GetYCoordinate(float rawYCoordinate, float textHeight, HintVerticalAlign from, HintVerticalAlign to);
 
         float GetXCoordinateWithAlignment(Hint hint);
-    
+
         float GetXCoordinateWithAlignment(Hint hint, HintAlignment alignment);
 
         float GetTextWidth(AbstractHint hint);

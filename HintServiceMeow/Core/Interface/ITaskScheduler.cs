@@ -1,7 +1,6 @@
 ﻿namespace HintServiceMeow.Core.Interface
 {
     using System;
-
     using HintServiceMeow.Core.Enum;
 
     internal interface ITaskScheduler

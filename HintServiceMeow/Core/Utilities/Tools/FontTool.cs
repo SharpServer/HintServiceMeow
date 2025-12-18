@@ -8,7 +8,6 @@
     using System.Linq;
     using System.Reflection;
     using System.Threading.Tasks;
-
     using HintServiceMeow.Core.Enum;
     using HintServiceMeow.Core.Interface;
 

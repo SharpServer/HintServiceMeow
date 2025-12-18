@@ -3,7 +3,6 @@
     using System;
     using System.ComponentModel;
     using System.Threading;
-
     using HintServiceMeow.Core.Enum;
     using HintServiceMeow.Core.Interface;
     using HintServiceMeow.Core.Models.Arguments;

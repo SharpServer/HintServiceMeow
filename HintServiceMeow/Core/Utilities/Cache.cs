@@ -2,7 +2,6 @@
 {
     using System;
     using System.Collections.Generic;
-
     using HintServiceMeow.Core.Interface;
 
     internal class Cache<TKey, TItem> : ICache<TKey, TItem>
@@ -56,7 +55,7 @@
             }
         }
 
-        #nullable disable
+#nullable disable
         public bool TryGet(TKey key, out TItem item)
         {
             lock (cacheLock)
@@ -91,7 +90,7 @@
             item = default;
             return false;
         }
-        #nullable restore
+#nullable restore
 
         private void RemoveFromList(CacheItem? item)
         {

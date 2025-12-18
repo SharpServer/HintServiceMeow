@@ -1,7 +1,6 @@
 ﻿namespace HintServiceMeow.Core.Utilities.Pools
 {
     using System.Collections.Concurrent;
-
     using HintServiceMeow.Core.Interface;
     using HintServiceMeow.Core.Utilities.Parser;
 

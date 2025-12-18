@@ -4,7 +4,6 @@
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
-
     using HintServiceMeow.Core.Enum;
     using HintServiceMeow.Core.Interface;
     using HintServiceMeow.Core.Models;
@@ -15,7 +14,6 @@
     using HintServiceMeow.Core.Utilities.Tools;
     using HintServiceMeow.Plugin;
     using HintServiceMeow.Plugin.Commands;
-
     using MEC;
 
     /// <summary>
@@ -139,7 +137,7 @@
         private void ReplaceHint(string assemblyName, IReadOnlyList<Hint> hints)
         {
             playerDisplay.InternalClearHint(assemblyName);
-            foreach(Hint hint in hints)
+            foreach (Hint hint in hints)
                 playerDisplay.InternalAddHint(assemblyName, hint);
             playerDisplay.ForceUpdate();// Since all the CompatibilityAdaptor hint is not synced, we need to force update
         }

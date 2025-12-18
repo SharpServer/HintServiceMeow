@@ -2,7 +2,6 @@
 {
     using System.Collections.Generic;
     using System.Linq;
-
     using HintServiceMeow.Core.Utilities;
 
     public class PlayerUI : Core.Interface.IDestructible
@@ -53,7 +52,7 @@
             return Get(player.ReferenceHub);
         }
 
-        #if EXILED
+#if EXILED
         public static PlayerUI Get(Exiled.API.Features.Player player)
         {
             if (player is null)
@@ -61,7 +60,7 @@
 
             return Get(player.ReferenceHub);
         }
-        #endif
+#endif
         #endregion
 
         #region Destructor Methods

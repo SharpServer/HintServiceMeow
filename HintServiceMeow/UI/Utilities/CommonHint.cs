@@ -2,7 +2,6 @@
 {
     using System;
     using System.Collections.Generic;
-
     using HintServiceMeow.Core.Enum;
     using HintServiceMeow.Core.Extension;
     using HintServiceMeow.Core.Models.Hints;

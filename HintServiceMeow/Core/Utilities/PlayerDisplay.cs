@@ -7,7 +7,6 @@
     using System.Linq;
     using System.Reflection;
     using System.Threading.Tasks;
-
     using HintServiceMeow.Core.Enum;
     using HintServiceMeow.Core.Interface;
     using HintServiceMeow.Core.Models;
@@ -15,7 +14,6 @@
     using HintServiceMeow.Core.Models.Hints;
     using HintServiceMeow.Core.Utilities.Parser;
     using HintServiceMeow.Core.Utilities.Tools;
-
     using MEC;
 
     /// <summary>
@@ -82,7 +80,7 @@
         private PlayerDisplay(ReferenceHub referenceHub)
             : this(new ReferenceHubContext(referenceHub))
         {
-            if(referenceHub is null)
+            if (referenceHub is null)
                 throw new ArgumentNullException(nameof(referenceHub));
 
             // Check if this belongs to local player (npc)
@@ -156,7 +154,7 @@
             return Get(player.ReferenceHub);
         }
 
-        #if EXILED
+#if EXILED
         /// <summary>
         /// Get the PlayerDisplay instance of the player. If the instance have not been created yet, then it will create one.
         /// Not Thread Safe.
@@ -170,7 +168,7 @@
 
             return Get(player.ReferenceHub);
         }
-        #endif
+#endif
 
         /// <summary>
         /// Force an update when the update is available. You do not have to use this method unless you are using HintSyncSpeed.UnSync.
@@ -354,7 +352,7 @@
         /// <param name="id">The ID of the hint.</param>
         /// <param name="hint">The found hint.</param>
         /// <returns>Whether hint is null.</returns>
-        #nullable disable
+#nullable disable
         public bool TryGetHint(string id, out AbstractHint hint)
         {
             if (id is null)
@@ -379,7 +377,7 @@
             hint = InternalGetHints(Assembly.GetCallingAssembly().FullName, x => x.Guid == guid).FirstOrDefault();
             return hint != null;
         }
-        #nullable restore
+#nullable restore
 
         public bool TryGetHints(string? id, out IEnumerable<AbstractHint> hints)
         {
@@ -683,11 +681,11 @@
             foreach (IDisplayOutput output in outputsSnapshot)
             {
                 try
-                { 
+                {
                     output.ShowHint(arg);
                 }
                 catch (Exception ex)
-                { 
+                {
                     Logger.Instance.Error(ex);
                 }
             }

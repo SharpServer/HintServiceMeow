@@ -1,7 +1,6 @@
 ﻿namespace HintServiceMeow.Core.Models.HintContent
 {
     using System;
-
     using HintServiceMeow.Core.Models.Arguments;
     using HintServiceMeow.Core.Utilities.Tools;
 

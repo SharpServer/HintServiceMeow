@@ -5,7 +5,6 @@
     using System.Linq;
     using System.Text;
     using System.Text.RegularExpressions;
-
     using HintServiceMeow.Core.Enum;
     using HintServiceMeow.Core.Interface;
     using HintServiceMeow.Core.Models;

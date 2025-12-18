@@ -3,9 +3,7 @@
     using System;
     using System.Collections.Generic;
     using System.Text;
-
     using CommandSystem;
-
     using HintServiceMeow.Core.Utilities.Pools;
 
     [CommandHandler(typeof(RemoteAdminCommandHandler))]

@@ -1,7 +1,6 @@
 ﻿namespace HintServiceMeow.Core.Models
 {
     using System;
-
     using HintServiceMeow.Core.Interface;
 
     internal class ReferenceHubContext : IPlayerContext

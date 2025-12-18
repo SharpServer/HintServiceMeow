@@ -2,7 +2,6 @@
 {
     using System.Collections.Concurrent;
     using System.Text;
-
     using HintServiceMeow.Core.Interface;
 
     internal class StringBuilderPool : IPool<StringBuilder>

@@ -1,7 +1,6 @@
 ﻿namespace HintServiceMeow.Core.Extension
 {
     using System.Reflection;
-
     using HintServiceMeow.Core.Models.Hints;
     using HintServiceMeow.Core.Utilities;
 

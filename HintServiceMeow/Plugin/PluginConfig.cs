@@ -2,7 +2,6 @@
 {
     using System.Collections.Generic;
     using System.ComponentModel;
-    using Exiled.API.Interfaces;
 
 #if EXILED
     internal class PluginConfig : IConfig

@@ -2,7 +2,6 @@
 {
     using System;
     using System.Collections.Generic;
-
     using HintServiceMeow.Core.Interface;
     using HintServiceMeow.Core.Utilities.Tools;
 
