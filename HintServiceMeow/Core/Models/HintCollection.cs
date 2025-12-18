@@ -15,6 +15,9 @@
         private readonly object collectionLock = new();
         private readonly Dictionary<string, List<AbstractHint>> hintGroups = new();
 
+        private IReadOnlyList<IReadOnlyList<AbstractHint>>? allGroupsCache;
+        private IReadOnlyList<AbstractHint>? allHintsCache;
+
         public event NotifyCollectionChangedEventHandler? CollectionChanged;
 
         public IReadOnlyList<IReadOnlyList<AbstractHint>> AllGroups
@@ -23,7 +26,10 @@
             {
                 lock (collectionLock)
                 {
-                    return hintGroups.Values.Select(x => x.ToList().AsReadOnly()).ToList().AsReadOnly();
+                    if (allGroupsCache == null)
+                        allGroupsCache = hintGroups.Values.Select(x => x.ToList().AsReadOnly()).ToList().AsReadOnly();
+
+                    return allGroupsCache;
                 }
             }
         }
@@ -34,7 +40,10 @@
             {
                 lock (collectionLock)
                 {
-                    return hintGroups.Values.SelectMany(x => x).ToList().AsReadOnly();
+                    if (allHintsCache == null)
+                        allHintsCache = hintGroups.Values.SelectMany(x => x).ToList().AsReadOnly();
+
+                    return allHintsCache;
                 }
             }
         }
@@ -209,6 +218,9 @@
 
         private void OnCollectionChanged(NotifyCollectionChangedEventArgs argument)
         {
+            allGroupsCache = null;
+            allHintsCache = null;
+
             CollectionChanged?.Invoke(this, argument);
         }
     }
