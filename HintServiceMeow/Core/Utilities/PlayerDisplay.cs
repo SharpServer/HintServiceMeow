@@ -83,8 +83,8 @@
             if (referenceHub is null)
                 throw new ArgumentNullException(nameof(referenceHub));
 
-            // Check if this belongs to local player (npc)
-            if (referenceHub.isServer)
+            // Do not add display output for host
+            if (referenceHub.IsHost)
                 return;
 
             displayOutputs.Add(new DefaultDisplayOutput(referenceHub.connectionToClient));
