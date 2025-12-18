@@ -583,32 +583,28 @@
 
             IEnumerable<AbstractHint> predictingHints = displayHints.AllGroups.SelectMany(x => x);
 
-            if (updatingHint != null)
-            {
-                predictingHints = predictingHints.Where(h => h.SyncSpeed >= updatingHint.SyncSpeed && h != updatingHint);
-            }
-
-            TimeSpan maxWaitingTimeSpan = TimeSpan.FromSeconds(maxWaitingTime);
             DateTime now = DateTime.Now;
+            DateTime maxTime = now.AddSeconds(maxWaitingTime);
             DateTime delayedUpdateTime = now;
 
             foreach (var h in predictingHints)
             {
+                if (h.SyncSpeed < updatingHint?.SyncSpeed || h == updatingHint)
+                    continue;
+
                 DateTime x = h.UpdateAnalyser.EstimateNextUpdate();
                 TimeSpan delta = x - now;
 
                 // Only consider the updates that will happen within the max waiting time
-                if (delta >= TimeSpan.Zero && delta <= maxWaitingTimeSpan)
-                {
-                    if (x > delayedUpdateTime)
-                    {
-                        delayedUpdateTime = x;
-                    }
-                }
+                if (x > delayedUpdateTime && x < maxTime)
+                    delayedUpdateTime = x;
             }
 
             float delay = (float)(delayedUpdateTime - now).TotalSeconds;
-            delay = Math.Max(maxWaitingTime, delay * 1.1f); // Increase by 10% to increase hit rate of prediction
+
+            // Clamp delay to maxWaitingTime
+            // Increase delay by 10% to increase hit rate of prediction
+            delay = Math.Max(maxWaitingTime, delay * 1.1f);
 
             if (delay <= 0)
                 updateScheduler.Invoke();
