@@ -1,17 +1,14 @@
 ﻿namespace HintServiceMeow.Core.Utilities
 {
     using System;
-
     using HintServiceMeow.Core.Interface;
     using HintServiceMeow.Core.Models.Arguments;
     using HintServiceMeow.Core.Utilities.Tools;
-
     using Mirror;
 
     internal class DefaultDisplayOutput : IDisplayOutput
     {
         private readonly NetworkConnection? connectionToPlayer;
-        private readonly Hints.HintMessage hintMessageTemplate = new(new Hints.TextHint(string.Empty, [new Hints.StringHintParameter(string.Empty)], [new Hints.AlphaEffect(1)], 99999f));
 
         public DefaultDisplayOutput(NetworkConnection connectionToPlayer)
         {
@@ -25,7 +22,7 @@
                 if (connectionToPlayer is not { isReady: true })
                     return;
 
-                ((Hints.TextHint)hintMessageTemplate.Content).Text = ev.Content;
+                Hints.HintMessage hintMessageTemplate = new(new Hints.TextHint(ev.Content, [new Hints.StringHintParameter(string.Empty)], [new Hints.AlphaEffect(1)], 99999f));
                 connectionToPlayer.Send(hintMessageTemplate);
             }
             catch (Exception ex)

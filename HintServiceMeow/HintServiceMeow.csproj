@@ -39,8 +39,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="Assembly-CSharp-firstpass" HintPath="..\Dependencies\Assembly-CSharp-firstpass.dll" Private="False" />
-    <Reference Include="Assembly-CSharp-publicized" HintPath="..\Dependencies\Assembly-CSharp-publicized.dll" Private="False" />
+    <Reference Include="Assembly-CSharp">
+      <HintPath>..\..\Dependencies\LabAPI 14.2.3\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="Assembly-CSharp-firstpass">
+      <HintPath>..\..\Dependencies\LabAPI 14.2.3\Assembly-CSharp-firstpass.dll</HintPath>
+    </Reference>
     <Reference Include="CommandSystem.Core" HintPath="..\Dependencies\CommandSystem.Core.dll" Private="False" />
     <Reference Include="Exiled.API" HintPath="..\Dependencies\Exiled.API.dll" Private="False" />
     <Reference Include="Exiled.Events" HintPath="..\Dependencies\Exiled.Events.dll" Private="False" />
