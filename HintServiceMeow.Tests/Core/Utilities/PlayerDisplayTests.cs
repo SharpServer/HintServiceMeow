@@ -44,6 +44,7 @@ namespace HintServiceMeow.Tests.Core.Utilities
         }
 
         [TestMethod]
+        // Verify constructor rejects null player context input.
         public void Constructor_ShouldThrow_WhenPlayerContextNull()
         {
             Assert.ThrowsExactly<ArgumentNullException>(() =>
@@ -53,6 +54,7 @@ namespace HintServiceMeow.Tests.Core.Utilities
         }
 
         [TestMethod]
+        // Verify ForceUpdate schedules normal and immediate delays correctly.
         public void ForceUpdate_ShouldScheduleExpectedDelay()
         {
             // Default force update should use normal fast path delay.
@@ -67,6 +69,7 @@ namespace HintServiceMeow.Tests.Core.Utilities
         }
 
         [TestMethod]
+        // Verify adding/removing hints by Guid and Id updates collection state as expected.
         public void AddAndRemoveHint_ShouldManageHintCollectionByGuidAndId()
         {
             Hint first = new() { Id = "hp" };
@@ -90,6 +93,7 @@ namespace HintServiceMeow.Tests.Core.Utilities
         }
 
         [TestMethod]
+        // Verify TryGetHint APIs are consistent before and after ClearHint.
         public void TryGetHintAndClearHint_ShouldReturnConsistentResult()
         {
             Hint hint = new() { Id = "quest" };
@@ -108,6 +112,7 @@ namespace HintServiceMeow.Tests.Core.Utilities
         }
 
         [TestMethod]
+        // Verify null/empty AddHint inputs are ignored without changing collection state.
         public void AddHint_NullInput_ShouldBeIgnored()
         {
             display.AddHint((AbstractHint?)null);
@@ -118,6 +123,7 @@ namespace HintServiceMeow.Tests.Core.Utilities
         }
 
         [TestMethod]
+        // Verify hint property changes schedule updates according to SyncSpeed and Hide rules.
         public void HintPropertyUpdate_ShouldRespectSyncSpeedAndHideRules()
         {
             // Unsynced hints should not trigger scheduling when updated.
@@ -146,6 +152,7 @@ namespace HintServiceMeow.Tests.Core.Utilities
         }
 
         [TestMethod]
+        // Verify SendHint fans out only to active outputs and tolerates output exceptions.
         public void AddRemoveDisplayOutput_AndSendHint_ShouldDeliverToActiveOutputsOnly()
         {
             TestDisplayOutput keepOutput = new();
@@ -166,6 +173,7 @@ namespace HintServiceMeow.Tests.Core.Utilities
         }
 
         [TestMethod]
+        // Verify compatibility hint calls are forwarded to adaptor with correct payload.
         public void ShowCompatibilityHint_ShouldForwardToAdaptor()
         {
             display.ShowCompatibilityHint("test-asm", "compat-content", 2.5f);
@@ -177,6 +185,7 @@ namespace HintServiceMeow.Tests.Core.Utilities
         }
 
         [TestMethod]
+        // Verify Destruct propagates cleanup to injected scheduler and adaptor dependencies.
         public void Destruct_ShouldDestructInjectedSchedulerAndAdaptor()
         {
             ((IDestructible)display).Destruct();
