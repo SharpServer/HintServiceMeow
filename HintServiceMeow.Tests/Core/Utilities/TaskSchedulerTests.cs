@@ -1,10 +1,10 @@
-﻿using HintServiceMeow.Core.Interface;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
+﻿using System;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-
+using HintServiceMeow.Core.Enum;
+using HintServiceMeow.Core.Interface;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using TaskScheduler = HintServiceMeow.Core.Utilities.TaskScheduler;
 
 namespace HintServiceMeow.Tests
@@ -60,7 +60,7 @@ namespace HintServiceMeow.Tests
             int invoked = 0;
             _scheduler.Start(TimeSpan.FromMilliseconds(50), () => { invoked++; });
 
-            _scheduler.Invoke(0, Core.Enum.DelayType.Override);
+            _scheduler.Invoke(0, DelayType.Override);
             await Task.Delay(120);
 
             Assert.AreEqual(1, invoked);
@@ -72,21 +72,21 @@ namespace HintServiceMeow.Tests
             _scheduler.Start(TimeSpan.FromMilliseconds(100), () => { _actionInvokeCount++; });
 
             // KeepFastest
-            _scheduler.Invoke(2f, Core.Enum.DelayType.KeepFastest);
+            _scheduler.Invoke(2f, DelayType.KeepFastest);
             DateTime firstTime = GetScheduledActionTime(_scheduler);
-            _scheduler.Invoke(1f, Core.Enum.DelayType.KeepFastest);
+            _scheduler.Invoke(1f, DelayType.KeepFastest);
             Assert.IsTrue(GetScheduledActionTime(_scheduler) <= firstTime);
 
             // KeepSlowest
-            _scheduler.Invoke(1f, Core.Enum.DelayType.KeepSlowest);
+            _scheduler.Invoke(1f, DelayType.KeepSlowest);
             firstTime = GetScheduledActionTime(_scheduler);
-            _scheduler.Invoke(10f, Core.Enum.DelayType.KeepSlowest);
+            _scheduler.Invoke(10f, DelayType.KeepSlowest);
             Assert.IsTrue(GetScheduledActionTime(_scheduler) >= firstTime);
 
             // Override
-            _scheduler.Invoke(3f, Core.Enum.DelayType.Override);
+            _scheduler.Invoke(3f, DelayType.Override);
             firstTime = GetScheduledActionTime(_scheduler);
-            _scheduler.Invoke(5f, Core.Enum.DelayType.Override);
+            _scheduler.Invoke(5f, DelayType.Override);
             Assert.IsLessThan(0.2, Math.Abs((GetScheduledActionTime(_scheduler) - DateTime.Now).TotalSeconds - 5f));
             return Task.CompletedTask;
         }
@@ -128,7 +128,7 @@ namespace HintServiceMeow.Tests
                 Console.WriteLine($"Action Executed at {DateTime.Now}");
             });
             _scheduler.Invoke();
-            Thread.Sleep(100/6);
+            Thread.Sleep(100 / 6);
             Assert.IsFalse(_scheduler.IsReadyForNextAction);
         }
 
@@ -141,7 +141,7 @@ namespace HintServiceMeow.Tests
             });
             _scheduler.Invoke();
 
-            Thread.Sleep(100/6); // Wait for 1 tick
+            Thread.Sleep(100 / 6); // Wait for 1 tick
             Thread.Sleep(10); // Wait for interval
 
             Console.WriteLine($"Elapsed for {_scheduler.Elapsed} since last action");

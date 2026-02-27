@@ -1,13 +1,12 @@
-﻿using HintServiceMeow.Core.Enum;
+﻿using System;
+using System.Linq;
+using System.Reflection;
+using HintServiceMeow.Core.Enum;
 using HintServiceMeow.Core.Interface;
-using HintServiceMeow.Core.Models;
 using HintServiceMeow.Core.Models.Hints;
 using HintServiceMeow.Core.Utilities;
 using HintServiceMeow.Tests.Core.Utilities.TestDoubles;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
-using System.Linq;
-using System.Reflection;
 
 namespace HintServiceMeow.Tests.Core.Utilities
 {
@@ -146,7 +145,7 @@ namespace HintServiceMeow.Tests.Core.Utilities
             Assert.IsTrue(scheduler.Invokes.Count > beforeHiddenUpdate);
 
             // Fast hint should schedule with a short delay and KeepFastest strategy.
-            (float Delay, DelayType DelayType) lastInvoke = scheduler.Invokes[^1];
+            (float Delay, DelayType DelayType) lastInvoke = scheduler.Invokes[scheduler.Invokes.Count - 1];
             Assert.IsTrue(lastInvoke.Delay > 0f && lastInvoke.Delay <= 0.1f);
             Assert.AreEqual(DelayType.KeepFastest, lastInvoke.DelayType);
         }
