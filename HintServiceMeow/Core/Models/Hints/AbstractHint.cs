@@ -254,8 +254,10 @@
                     if (content == value)
                         return;
 
+                    Content.ContentUpdated -= OnContentUpdate;
+
                     content = value;
-                    content.ContentUpdated += () => OnHintUpdated("Content");
+                    content.ContentUpdated += OnContentUpdate;
                     OnHintUpdated("Content");
                 }
                 finally
@@ -395,6 +397,11 @@
             analyser.OnUpdate();
 
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(argumentName));
+        }
+
+        private void OnContentUpdate()
+        {
+            OnHintUpdated("Content");
         }
 
         #endregion

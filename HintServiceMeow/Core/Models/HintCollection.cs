@@ -99,6 +99,12 @@
                             success = true;
                         }
                     }
+
+                    // Remove all empty groups.
+                    foreach (string? key in hintGroups.Where(x => !x.Value.Any()).Select(x => x.Key).ToList())
+                    {
+                        hintGroups.Remove(key);
+                    }
                 }
                 else
                 {
@@ -152,6 +158,12 @@
                             }
                         }
                     }
+
+                    // Remove all empty groups.
+                    foreach (string? key in hintGroups.Where(x => !x.Value.Any()).Select(x => x.Key).ToList())
+                    {
+                        hintGroups.Remove(key);
+                    }
                 }
                 else
                 {
@@ -198,10 +210,7 @@
                 // If assemblyName is null, clear all groups.
                 if (assemblyName is null)
                 {
-                    foreach (List<AbstractHint> collection in hintGroups.Values)
-                    {
-                        collection.Clear();
-                    }
+                    hintGroups.Clear();
                 }
                 else
                 {
@@ -210,6 +219,7 @@
                         return;
 
                     assemblyCollection.Clear();
+                    hintGroups.Remove(assemblyName);
                 }
             }
 

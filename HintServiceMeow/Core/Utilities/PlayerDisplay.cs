@@ -592,19 +592,26 @@
                 if (h.SyncSpeed < updatingHint?.SyncSpeed || h == updatingHint)
                     continue;
 
-                DateTime x = h.UpdateAnalyser.EstimateNextUpdate();
-                TimeSpan delta = x - now;
+                LabApi.Features.Console.Logger.Debug($"Predicting hint: {h.Id} ({h.Guid})");
+                DateTime estNextUpdate = h.UpdateAnalyser.EstimateNextUpdate();
 
+                if (estNextUpdate == DateTime.MaxValue)
+                    continue;
+
+                TimeSpan delta = estNextUpdate - now;
+
+                LabApi.Features.Console.Logger.Debug($"Estimated next update time: {estNextUpdate} (in {delta.TotalSeconds}s)");
                 // Only consider the updates that will happen within the max waiting time
-                if (x > delayedUpdateTime && x < maxTime)
-                    delayedUpdateTime = x;
+                if (estNextUpdate > delayedUpdateTime && estNextUpdate < maxTime)
+                    delayedUpdateTime = estNextUpdate;
             }
 
+            LabApi.Features.Console.Logger.Debug($"Final delayed update: {delayedUpdateTime}");
             float delay = (float)(delayedUpdateTime - now).TotalSeconds;
 
             // Clamp delay to maxWaitingTime
             // Increase delay by 10% to increase hit rate of prediction
-            delay = Math.Max(maxWaitingTime, delay * 1.1f);
+            delay = Math.Min(maxWaitingTime, delay * 1.1f);
 
             if (delay <= 0)
                 updateScheduler.Invoke();
@@ -620,46 +627,54 @@
                     return;
 
                 currentParserTask =
-                    ConcurrentTaskDispatcher.Instance.Enqueue(() =>
+                    ConcurrentTaskDispatcher.Instance.Enqueue(async () =>
                     {
                         string richText;
 
                         try
                         {
                             richText = hintParser.ParseToMessage(displayHints);
+
+                            MainThreadDispatcher.Dispatch(() =>
+                            {
+                                try
+                                {
+                                    // If destroyed while waiting for main thread, skip the update
+                                    if (this.isDestroyed)
+                                        return;
+
+                                    SendHint(richText);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Logger.Instance.Error(ex);
+                                }
+                                finally
+                                {
+                                    lock (currentParserTaskLock)
+                                    {
+                                        currentParserTask = null;
+                                    }
+
+                                    updateScheduler.Resume(); // Resume action after the parser task is finishing
+                                }
+                            });
                         }
                         catch (Exception ex)
                         {
                             Logger.Instance.Error(ex);
-                            return Task.FromResult(Task.CompletedTask);
+
+                            lock (currentParserTaskLock)
+                            {
+                                currentParserTask = null;
+                            }
+
+                            updateScheduler.Resume(); // Resume action if parser or main thread dispatcher failed
+
+                            return Task.CompletedTask;
                         }
 
-                        MainThreadDispatcher.Dispatch(() =>
-                        {
-                            // If destroyed while waiting for main thread, skip the update
-                            if (this.isDestroyed)
-                                return;
-
-                            try
-                            {
-                                SendHint(richText);
-                            }
-                            catch (Exception ex)
-                            {
-                                Logger.Instance.Error(ex);
-                            }
-                            finally
-                            {
-                                lock (currentParserTaskLock)
-                                {
-                                    currentParserTask = null;
-                                }
-
-                                updateScheduler.Resume(); // Resume action after the parser task is finishing
-                            }
-                        });
-
-                        return Task.FromResult(Task.CompletedTask);
+                        return Task.CompletedTask;
                     });
             }
         }
