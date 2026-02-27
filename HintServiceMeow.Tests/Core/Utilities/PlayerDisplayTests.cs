@@ -11,6 +11,10 @@ using System.Reflection;
 
 namespace HintServiceMeow.Tests.Core.Utilities
 {
+    /// <summary>
+    /// Tests for <see cref="PlayerDisplay"/> that focus on public behavior
+    /// while controlling runtime dependencies through test doubles.
+    /// </summary>
     [TestClass]
     public class PlayerDisplayTests
     {
@@ -23,6 +27,7 @@ namespace HintServiceMeow.Tests.Core.Utilities
         [TestInitialize]
         public void SetUp()
         {
+            // Build a fully controlled test environment so each test is deterministic.
             scheduler = new TestTaskScheduler();
             adaptor = new TestCompatibilityAdaptor();
             parser = new TestHintParser();
@@ -34,6 +39,7 @@ namespace HintServiceMeow.Tests.Core.Utilities
         [TestCleanup]
         public void TearDown()
         {
+            // Ensure internal resources are released between tests.
             ((IDestructible)display).Destruct();
         }
 
@@ -49,7 +55,10 @@ namespace HintServiceMeow.Tests.Core.Utilities
         [TestMethod]
         public void ForceUpdate_ShouldScheduleExpectedDelay()
         {
+            // Default force update should use normal fast path delay.
             display.ForceUpdate();
+
+            // Fast update should request immediate invocation.
             display.ForceUpdate(useFastUpdate: true);
 
             Assert.AreEqual(2, scheduler.Invokes.Count);
@@ -69,10 +78,12 @@ namespace HintServiceMeow.Tests.Core.Utilities
             Assert.IsTrue(display.HasHint(first.Guid));
             Assert.AreEqual(2, display.GetHints("hp").Count());
 
+            // Remove by Guid should only remove the exact target hint.
             display.RemoveHint(first.Guid);
             Assert.IsFalse(display.HasHint(first.Guid));
             Assert.IsTrue(display.HasHint(second.Guid));
 
+            // Remove by Id should remove all hints with that id in the same caller group.
             display.RemoveHint("hp");
             Assert.IsFalse(display.HasHint(second.Guid));
             Assert.AreEqual(0, display.GetHints().Count());
@@ -90,6 +101,7 @@ namespace HintServiceMeow.Tests.Core.Utilities
             Assert.IsTrue(display.TryGetHint(hint.Guid, out AbstractHint guidHint));
             Assert.AreSame(hint, guidHint);
 
+            // Clear all hints from caller group and verify both retrieval APIs reflect it.
             display.ClearHint();
             Assert.IsFalse(display.TryGetHint("quest", out _));
             Assert.IsFalse(display.TryGetHint(hint.Guid, out _));
@@ -108,6 +120,7 @@ namespace HintServiceMeow.Tests.Core.Utilities
         [TestMethod]
         public void HintPropertyUpdate_ShouldRespectSyncSpeedAndHideRules()
         {
+            // Unsynced hints should not trigger scheduling when updated.
             Hint unSyncHint = new() { Id = "unsync", SyncSpeed = HintSyncSpeed.UnSync };
             display.AddHint(unSyncHint);
             int beforeUnSyncUpdate = scheduler.Invokes.Count;
@@ -115,15 +128,18 @@ namespace HintServiceMeow.Tests.Core.Utilities
             unSyncHint.FontSize++;
             Assert.AreEqual(beforeUnSyncUpdate, scheduler.Invokes.Count);
 
+            // Hidden hint updates (except Hide itself) should be ignored.
             Hint hiddenHint = new() { Id = "hidden", SyncSpeed = HintSyncSpeed.Fast, Hide = true };
             display.AddHint(hiddenHint);
             int beforeHiddenUpdate = scheduler.Invokes.Count;
             hiddenHint.FontSize++;
             Assert.AreEqual(beforeHiddenUpdate, scheduler.Invokes.Count);
 
+            // Changing Hide itself should trigger a sync-based schedule.
             hiddenHint.Hide = false;
             Assert.IsTrue(scheduler.Invokes.Count > beforeHiddenUpdate);
 
+            // Fast hint should schedule with a short delay and KeepFastest strategy.
             (float Delay, DelayType DelayType) lastInvoke = scheduler.Invokes[^1];
             Assert.IsTrue(lastInvoke.Delay > 0f && lastInvoke.Delay <= 0.1f);
             Assert.AreEqual(DelayType.KeepFastest, lastInvoke.DelayType);
@@ -141,6 +157,7 @@ namespace HintServiceMeow.Tests.Core.Utilities
             display.AddDisplayOutput(throwOutput);
             display.RemoveDisplayOutput(removeOutput);
 
+            // Removed output must not receive messages; throwing output must not break others.
             InvokeSendHint(display, "hello");
 
             Assert.AreEqual(1, keepOutput.Calls.Count);
@@ -170,6 +187,7 @@ namespace HintServiceMeow.Tests.Core.Utilities
 
         private static void InvokeSendHint(PlayerDisplay pd, string text)
         {
+            // SendHint is private; invoke via reflection to test output fan-out behavior directly.
             MethodInfo method = typeof(PlayerDisplay).GetMethod("SendHint", BindingFlags.NonPublic | BindingFlags.Instance)!;
             method.Invoke(pd, [text]);
         }
