@@ -12,9 +12,9 @@
     using HintServiceMeow.Core.Utilities.Parser;
     using HintServiceMeow.Core.Utilities.Pools;
     using HintServiceMeow.Core.Utilities.Tools;
+    using HintServiceMeow.Core.Utilities.UnityAdapters;
     using HintServiceMeow.Plugin;
     using HintServiceMeow.Plugin.Commands;
-    using MEC;
 
     /// <summary>
     /// Adapt raw unity rich text into HSM.
@@ -23,18 +23,21 @@
     {
         private static readonly ICache<string, IReadOnlyList<Hint>> HintCache = new Cache<string, IReadOnlyList<Hint>>(500);
 
-        private readonly Dictionary<string, CoroutineHandle> removeHandles = new();
-        private readonly PlayerDisplay playerDisplay;
-        private readonly IPool<RichTextParser> richTextParserPool;
+        private readonly Dictionary<string, ICoroutine> removeHandles = new();
+        private readonly PlayerDisplay playerDisplay; // Initialize in constructor
+        private readonly IPool<RichTextParser> richTextParserPool; // Initialize in constructor
+        private readonly ICoroutineRunner coroutineRunner; // Initialize in constructor
 
         private bool destructed; // To prevent multiple destruct calls
 
         internal CompatibilityAdaptor(
             PlayerDisplay playerDisplay,
-            IPool<RichTextParser>? richTextParserPool = null)
+            IPool<RichTextParser>? richTextParserPool = null,
+            ICoroutineRunner? coroutineRunner = null)
         {
             this.playerDisplay = playerDisplay ?? throw new ArgumentNullException(nameof(playerDisplay));
             this.richTextParserPool = richTextParserPool ?? RichTextParserPool.Instance;
+            this.coroutineRunner = coroutineRunner ?? new UnityCoroutineRunner();
         }
 
         void IDestructible.Destruct()
@@ -42,9 +45,9 @@
             if (destructed)
                 return;
 
-            foreach (CoroutineHandle handle in removeHandles.Values)
+            foreach (ICoroutine coroutine in removeHandles.Values)
             {
-                Timing.KillCoroutines(handle); // Stop all running coroutines
+                coroutine.Kill(); // Stop all running coroutines
             }
 
             removeHandles.Clear(); // Clear the dictionary
@@ -83,12 +86,12 @@
             if (destructed) // If the adaptor has been destructed, do not proceed
                 return;
 
-            if (removeHandles.TryGetValue(internalAssemblyName, out CoroutineHandle oldHandle))
-                Timing.KillCoroutines(oldHandle); // Stop the previous coroutine if exists
+            if (removeHandles.TryGetValue(internalAssemblyName, out ICoroutine oldHandle))
+                oldHandle.Kill(); // Stop the previous coroutine if exists
 
             // Start a new coroutine to remove the hint after the duration
             removeHandles[internalAssemblyName] =
-                Timing.CallDelayed(duration + 0.1f, () =>
+                coroutineRunner.CallAfter(TimeSpan.FromSeconds(duration + 0.1f), () =>
                 {
                     playerDisplay.InternalClearHint(internalAssemblyName);
                     playerDisplay.ForceUpdate();

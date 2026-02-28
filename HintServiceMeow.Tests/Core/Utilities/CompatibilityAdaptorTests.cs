@@ -1,7 +1,7 @@
 using System;
-using System.Threading;
 using System.Reflection;
 using System.Runtime.Serialization;
+using System.Threading;
 using HintServiceMeow.Core.Models.Hints;
 using HintServiceMeow.Core.Utilities;
 using HintServiceMeow.Core.Utilities.Parser;
@@ -77,12 +77,12 @@ public class CompatibilityAdaptorTests
 
     private static void EnsurePluginConfig()
     {
-        FieldInfo instanceField = typeof(Plugin).GetField("<Instance>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic)!;
+        FieldInfo instanceField = typeof(Plugin.Plugin).GetField("<Instance>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic)!;
         if (instanceField.GetValue(null) is not null)
             return;
 
-        Plugin fakePlugin = (Plugin)FormatterServices.GetUninitializedObject(typeof(Plugin));
-        typeof(Plugin).GetField("<Config>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
+        Plugin.Plugin fakePlugin = (Plugin.Plugin)FormatterServices.GetUninitializedObject(typeof(Plugin.Plugin));
+        typeof(Plugin.Plugin).GetField("<Config>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(fakePlugin, new PluginConfig { DisabledCompatAdapter = [] });
         instanceField.SetValue(null, fakePlugin);
     }

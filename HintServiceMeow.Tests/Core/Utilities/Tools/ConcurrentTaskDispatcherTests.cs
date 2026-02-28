@@ -1,7 +1,7 @@
 using System;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Collections.Concurrent;
 using HintServiceMeow.Core.Utilities.Tools;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -50,11 +50,13 @@ public class ConcurrentTaskDispatcherTests
         ConcurrentTaskDispatcher dispatcher = new(4);
         ConcurrentBag<int> bag = [];
 
-        await Parallel.ForEachAsync(Enumerable.Range(0, 100), async (i, _) =>
+        var tasks = Enumerable.Range(0, 100).Select(async i =>
         {
             int result = await dispatcher.Enqueue(() => Task.FromResult(i));
             bag.Add(result);
         });
+
+        await Task.WhenAll(tasks);
 
         Assert.AreEqual(100, bag.Count);
     }
