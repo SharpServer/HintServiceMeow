@@ -1,5 +1,6 @@
 ﻿namespace HintServiceMeow.Core.Utilities.UnityAdapters
 {
+    using System;
     using System.Collections.Generic;
     using HintServiceMeow.Core.Interface;
     using MEC;
@@ -9,6 +10,11 @@
         public ICoroutine StartCoroutine(IEnumerator<float> routine)
         {
             return new UnityCoroutine(Timing.RunCoroutine(WrapCoroutine(routine)));
+        }
+
+        public ICoroutine CallAfter(TimeSpan time, Action action)
+        {
+            return new UnityCoroutine(Timing.CallDelayed((float)time.TotalSeconds, action));
         }
 
         private IEnumerator<float> WrapCoroutine(IEnumerator<float> routine)
