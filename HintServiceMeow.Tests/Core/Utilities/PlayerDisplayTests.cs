@@ -21,6 +21,7 @@ namespace HintServiceMeow.Tests.Core.Utilities
         private TestCompatibilityAdaptor adaptor = null!;
         private TestHintParser parser = null!;
         private TestPlayerContext context = null!;
+        private TestCoroutineRunner coroutineRunner = null!;
         private PlayerDisplay display = null!;
 
         [TestInitialize]
@@ -31,8 +32,9 @@ namespace HintServiceMeow.Tests.Core.Utilities
             adaptor = new TestCompatibilityAdaptor();
             parser = new TestHintParser();
             context = new TestPlayerContext { IsStillValid = false };
+            coroutineRunner = new TestCoroutineRunner();
 
-            display = new PlayerDisplay(context, updateScheduler: scheduler, adaptor: adaptor, hintParser: parser);
+            display = new PlayerDisplay(context, updateScheduler: scheduler, adaptor: adaptor, hintParser: parser, coroutineRunner: coroutineRunner);
         }
 
         [TestCleanup]
@@ -50,6 +52,25 @@ namespace HintServiceMeow.Tests.Core.Utilities
             {
                 _ = new PlayerDisplay(null!);
             });
+        }
+
+        [TestMethod]
+        // Verify constructor starts the internal update coroutine using injected runner.
+        public void Constructor_ShouldStartCoroutine_WhenRunnerInjected()
+        {
+            Assert.AreEqual(1, coroutineRunner.StartedRoutines.Count);
+            Assert.IsTrue(coroutineRunner.LastCoroutine.IsRunning);
+            Assert.IsFalse(coroutineRunner.LastCoroutine.IsKilled);
+        }
+
+        [TestMethod]
+        // Verify destruct stops the started coroutine.
+        public void Destruct_ShouldKillStartedCoroutine()
+        {
+            ((IDestructible)display).Destruct();
+
+            Assert.IsTrue(coroutineRunner.LastCoroutine.IsKilled);
+            Assert.IsFalse(coroutineRunner.LastCoroutine.IsRunning);
         }
 
         [TestMethod]
