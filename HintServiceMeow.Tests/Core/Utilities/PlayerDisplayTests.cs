@@ -140,7 +140,7 @@ namespace HintServiceMeow.Tests.Core.Utilities
             display.AddHint(new Hint { Id = "collection-changed" });
 
             Assert.IsTrue(scheduler.Invokes.Count > before);
-            Assert.IsTrue(scheduler.Invokes[^1].Delay <= 0);
+            Assert.IsTrue(scheduler.Invokes.Last().Delay <= 0);
         }
 
         [TestMethod]
@@ -162,12 +162,12 @@ namespace HintServiceMeow.Tests.Core.Utilities
             hiddenHint.Hide = false;
             Assert.IsTrue(scheduler.Invokes.Count > beforeHiddenUpdate);
 
-            (float Delay, DelayType DelayType) lastInvoke = scheduler.Invokes[^1];
+            (float Delay, DelayType DelayType) lastInvoke = scheduler.Invokes.Last();
             Assert.IsTrue(lastInvoke.Delay <= 0.1f);
             Assert.AreEqual(DelayType.KeepFastest, lastInvoke.DelayType);
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(HintSyncSpeed.Fastest, 0f)]
         [DataRow(HintSyncSpeed.Fast, 0.1f)]
         [DataRow(HintSyncSpeed.Normal, 0.3f)]
@@ -182,7 +182,7 @@ namespace HintServiceMeow.Tests.Core.Utilities
             hint.FontSize++;
 
             Assert.IsTrue(scheduler.Invokes.Count > before);
-            (float Delay, DelayType delayType) invoke = scheduler.Invokes[^1];
+            (float Delay, DelayType delayType) invoke = scheduler.Invokes.Last();
 
             if (speed == HintSyncSpeed.Fastest)
             {
@@ -201,7 +201,7 @@ namespace HintServiceMeow.Tests.Core.Utilities
         public void ScheduleUpdate_PredictionInWindow_ShouldUsePredictedDelayAndKeepFastest()
         {
             Hint updatingHint = new() { Id = "updating", SyncSpeed = HintSyncSpeed.Normal, UpdateAnalyser = new FixedUpdateAnalyser { NextUpdateTime = DateTime.Now.AddSeconds(10) } };
-            Hint predictingHint = new() { Id = "predict", SyncSpeed = HintSyncSpeed.Slowest, UpdateAnalyser = new FixedUpdateAnalyser { NextUpdateTime = DateTime.Now.AddSeconds(0.4) } };
+            Hint predictingHint = new() { Id = "predict", SyncSpeed = HintSyncSpeed.Fastest, UpdateAnalyser = new FixedUpdateAnalyser { NextUpdateTime = DateTime.Now.AddSeconds(0.25) } };
 
             display.AddHint(updatingHint, predictingHint);
             int before = scheduler.Invokes.Count;
@@ -209,9 +209,9 @@ namespace HintServiceMeow.Tests.Core.Utilities
             updatingHint.FontSize++;
 
             Assert.IsTrue(scheduler.Invokes.Count > before);
-            (float Delay, DelayType DelayType) invoke = scheduler.Invokes[^1];
+            (float Delay, DelayType DelayType) invoke = scheduler.Invokes.Last();
             Assert.AreEqual(DelayType.KeepFastest, invoke.DelayType);
-            Assert.IsTrue(invoke.Delay > 0.2f && invoke.Delay < 0.7f);
+            Assert.IsTrue(invoke.Delay > 0.2f && invoke.Delay < 0.3f);
         }
 
         [TestMethod]
@@ -224,7 +224,7 @@ namespace HintServiceMeow.Tests.Core.Utilities
 
             updatingHint.Hide = true;
 
-            (float Delay, DelayType DelayType) invoke = scheduler.Invokes[^1];
+            (float Delay, DelayType DelayType) invoke = scheduler.Invokes.Last();
             Assert.AreEqual(DelayType.KeepFastest, invoke.DelayType);
             Assert.IsTrue(invoke.Delay >= 0f);
             Assert.IsTrue(invoke.Delay <= 0.02f);
@@ -240,7 +240,7 @@ namespace HintServiceMeow.Tests.Core.Utilities
 
             updatingHint.FontSize++;
 
-            (float Delay, DelayType DelayType) invoke = scheduler.Invokes[^1];
+            (float Delay, DelayType DelayType) invoke = scheduler.Invokes.Last();
             Assert.AreEqual(DelayType.KeepFastest, invoke.DelayType);
             Assert.IsTrue(invoke.Delay <= 0.02f);
         }
@@ -250,9 +250,9 @@ namespace HintServiceMeow.Tests.Core.Utilities
         {
             Hint hint = new() { Id = "remove", SyncSpeed = HintSyncSpeed.Normal };
             display.AddHint(hint);
-            scheduler.Invokes.Clear();
-
             display.RemoveHint(hint);
+
+            scheduler.Invokes.Clear();
             hint.FontSize++;
 
             Assert.AreEqual(0, scheduler.Invokes.Count);
@@ -263,9 +263,9 @@ namespace HintServiceMeow.Tests.Core.Utilities
         {
             Hint hint = new() { Id = "clear", SyncSpeed = HintSyncSpeed.Normal };
             display.AddHint(hint);
-            scheduler.Invokes.Clear();
-
             display.ClearHint();
+
+            scheduler.Invokes.Clear();
             hint.FontSize++;
 
             Assert.AreEqual(0, scheduler.Invokes.Count);
@@ -350,6 +350,8 @@ namespace HintServiceMeow.Tests.Core.Utilities
         [TestMethod]
         public void SchedulerCallback_WhenParserThrows_ShouldResumeWithoutSending()
         {
+            bool parserExecuted = false;
+
             TestMainThreadDispatcher dispatcher = new();
             TestDisplayOutput output = new();
             TestTaskScheduler localScheduler = new();
@@ -357,7 +359,11 @@ namespace HintServiceMeow.Tests.Core.Utilities
                 new TestPlayerContext { IsStillValid = false },
                 updateScheduler: localScheduler,
                 adaptor: new TestCompatibilityAdaptor(),
-                hintParser: new DelegateHintParser(_ => throw new InvalidOperationException("parser failure")),
+                hintParser: new DelegateHintParser(_ =>
+                {
+                    parserExecuted = true;
+                    throw new InvalidOperationException("parser failure");
+                }),
                 coroutineRunner: new TestCoroutineRunner(),
                 dispatcher: dispatcher,
                 displayOutputs: new[] { output });
@@ -368,6 +374,7 @@ namespace HintServiceMeow.Tests.Core.Utilities
 
                 AssertEventually(() => !localScheduler.IsPaused, 1000, "Scheduler should resume after parser exception");
                 Assert.AreEqual(0, output.Calls.Count);
+                Assert.IsTrue(parserExecuted);
             }
             finally
             {
@@ -438,7 +445,7 @@ namespace HintServiceMeow.Tests.Core.Utilities
 
             Assert.IsTrue(routine.MoveNext());
             Assert.IsTrue(scheduler.Invokes.Any());
-            Assert.IsTrue(scheduler.Invokes[^1].Delay <= 0);
+            Assert.IsTrue(scheduler.Invokes.Last().Delay <= 0);
         }
 
         [TestMethod]

@@ -1,11 +1,9 @@
-﻿using HintServiceMeow.Core.Enum;
+﻿using System;
+using System.Collections.Generic;
+using HintServiceMeow.Core.Enum;
 using HintServiceMeow.Core.Interface;
 using HintServiceMeow.Core.Models;
 using HintServiceMeow.Core.Models.Arguments;
-using HintServiceMeow.Core.Utilities;
-using System;
-using System.Collections.Generic;
-using System.Threading;
 
 namespace HintServiceMeow.Tests.Core.Utilities.TestDoubles
 {

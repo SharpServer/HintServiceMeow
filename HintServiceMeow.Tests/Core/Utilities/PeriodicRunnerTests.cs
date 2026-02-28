@@ -1,8 +1,8 @@
-﻿using HintServiceMeow.Core.Utilities;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using HintServiceMeow.Core.Utilities;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace HintServiceMeow.Tests
 {
