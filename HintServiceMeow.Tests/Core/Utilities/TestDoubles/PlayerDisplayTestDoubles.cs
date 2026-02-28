@@ -5,6 +5,7 @@ using HintServiceMeow.Core.Models.Arguments;
 using HintServiceMeow.Core.Utilities;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace HintServiceMeow.Tests.Core.Utilities.TestDoubles
 {
@@ -156,6 +157,41 @@ namespace HintServiceMeow.Tests.Core.Utilities.TestDoubles
         {
             ParseCallCount++;
             return ReturnText;
+        }
+    }
+
+    internal sealed class DelegateHintParser : IHintParser
+    {
+        private readonly Func<HintCollection, string> parseFunc;
+
+        public DelegateHintParser(Func<HintCollection, string> parseFunc)
+        {
+            this.parseFunc = parseFunc ?? throw new ArgumentNullException(nameof(parseFunc));
+        }
+
+        public int ParseCallCount { get; private set; }
+
+        public string ParseToMessage(HintCollection collection)
+        {
+            ParseCallCount++;
+            return parseFunc(collection);
+        }
+    }
+
+    internal sealed class TestMainThreadDispatcher : IMainThreadDispatcher
+    {
+        public int DispatchCallCount { get; private set; }
+
+        public bool ThrowOnDispatch { get; set; }
+
+        public void Dispatch(Action action)
+        {
+            DispatchCallCount++;
+
+            if (ThrowOnDispatch)
+                throw new InvalidOperationException("Dispatch failed in test");
+
+            action();
         }
     }
 

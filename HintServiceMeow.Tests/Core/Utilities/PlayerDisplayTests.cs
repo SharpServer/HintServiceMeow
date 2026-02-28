@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using HintServiceMeow.Core.Enum;
 using HintServiceMeow.Core.Interface;
 using HintServiceMeow.Core.Models.Hints;
@@ -10,10 +12,6 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace HintServiceMeow.Tests.Core.Utilities
 {
-    /// <summary>
-    /// Tests for <see cref="PlayerDisplay"/> that focus on public behavior
-    /// while controlling runtime dependencies through test doubles.
-    /// </summary>
     [TestClass]
     public class PlayerDisplayTests
     {
@@ -27,7 +25,6 @@ namespace HintServiceMeow.Tests.Core.Utilities
         [TestInitialize]
         public void SetUp()
         {
-            // Build a fully controlled test environment so each test is deterministic.
             scheduler = new TestTaskScheduler();
             adaptor = new TestCompatibilityAdaptor();
             parser = new TestHintParser();
@@ -40,22 +37,16 @@ namespace HintServiceMeow.Tests.Core.Utilities
         [TestCleanup]
         public void TearDown()
         {
-            // Ensure internal resources are released between tests.
             ((IDestructible)display).Destruct();
         }
 
         [TestMethod]
-        // Verify constructor rejects null player context input.
         public void Constructor_ShouldThrow_WhenPlayerContextNull()
         {
-            Assert.ThrowsExactly<ArgumentNullException>(() =>
-            {
-                _ = new PlayerDisplay(null!);
-            });
+            Assert.ThrowsExactly<ArgumentNullException>(() => _ = new PlayerDisplay(null!));
         }
 
         [TestMethod]
-        // Verify constructor starts the internal update coroutine using injected runner.
         public void Constructor_ShouldStartCoroutine_WhenRunnerInjected()
         {
             Assert.AreEqual(1, coroutineRunner.StartedRoutines.Count);
@@ -64,7 +55,6 @@ namespace HintServiceMeow.Tests.Core.Utilities
         }
 
         [TestMethod]
-        // Verify destruct stops the started coroutine.
         public void Destruct_ShouldKillStartedCoroutine()
         {
             ((IDestructible)display).Destruct();
@@ -74,20 +64,19 @@ namespace HintServiceMeow.Tests.Core.Utilities
         }
 
         [TestMethod]
-        // Verify ForceUpdate schedules normal and immediate delays correctly.
+        public void Destruct_ShouldDestructInjectedSchedulerAndAdaptor()
+        {
+            ((IDestructible)display).Destruct();
+
+            Assert.IsTrue(scheduler.IsDestructed);
+            Assert.IsTrue(adaptor.IsDestructed);
+        }
+
+        [TestMethod]
         public void ForceUpdate_ShouldScheduleExpectedDelay()
         {
-            // Default force update should use normal fast path delay.
             display.ForceUpdate();
-
-            // Fast update should request immediate invocation.
             display.ForceUpdate(useFastUpdate: true);
-
-            Console.WriteLine($"Scheduled invokes: {scheduler.Invokes.Count}");
-            foreach (var invoke in scheduler.Invokes)
-            {
-                Console.WriteLine($"Delay: {invoke.Delay}, Strategy: {invoke.DelayType}");
-            }
 
             Assert.AreEqual(2, scheduler.Invokes.Count);
             Assert.IsTrue(scheduler.Invokes[0].Delay < 0.3f);
@@ -95,7 +84,6 @@ namespace HintServiceMeow.Tests.Core.Utilities
         }
 
         [TestMethod]
-        // Verify adding/removing hints by Guid and Id updates collection state as expected.
         public void AddAndRemoveHint_ShouldManageHintCollectionByGuidAndId()
         {
             Hint first = new() { Id = "hp" };
@@ -107,19 +95,16 @@ namespace HintServiceMeow.Tests.Core.Utilities
             Assert.IsTrue(display.HasHint(first.Guid));
             Assert.AreEqual(2, display.GetHints("hp").Count());
 
-            // Remove by Guid should only remove the exact target hint.
             display.RemoveHint(first.Guid);
             Assert.IsFalse(display.HasHint(first.Guid));
             Assert.IsTrue(display.HasHint(second.Guid));
 
-            // Remove by Id should remove all hints with that id in the same caller group.
             display.RemoveHint("hp");
             Assert.IsFalse(display.HasHint(second.Guid));
             Assert.AreEqual(0, display.GetHints().Count());
         }
 
         [TestMethod]
-        // Verify TryGetHint APIs are consistent before and after ClearHint.
         public void TryGetHintAndClearHint_ShouldReturnConsistentResult()
         {
             Hint hint = new() { Id = "quest" };
@@ -131,28 +116,36 @@ namespace HintServiceMeow.Tests.Core.Utilities
             Assert.IsTrue(display.TryGetHint(hint.Guid, out AbstractHint guidHint));
             Assert.AreSame(hint, guidHint);
 
-            // Clear all hints from caller group and verify both retrieval APIs reflect it.
             display.ClearHint();
             Assert.IsFalse(display.TryGetHint("quest", out _));
             Assert.IsFalse(display.TryGetHint(hint.Guid, out _));
         }
 
         [TestMethod]
-        // Verify null/empty AddHint inputs are ignored without changing collection state.
         public void AddHint_NullInput_ShouldBeIgnored()
         {
             display.AddHint((AbstractHint?)null);
             display.AddHint((AbstractHint[]?)null);
             display.AddHint(Array.Empty<AbstractHint>());
+            display.AddHint((IEnumerable<AbstractHint>?)null);
 
             Assert.AreEqual(0, display.GetHints().Count());
         }
 
         [TestMethod]
-        // Verify hint property changes schedule updates according to SyncSpeed and Hide rules.
+        public void AddHint_CollectionChange_ShouldTriggerScheduleUpdate()
+        {
+            int before = scheduler.Invokes.Count;
+
+            display.AddHint(new Hint { Id = "collection-changed" });
+
+            Assert.IsTrue(scheduler.Invokes.Count > before);
+            Assert.IsTrue(scheduler.Invokes[^1].Delay <= 0);
+        }
+
+        [TestMethod]
         public void HintPropertyUpdate_ShouldRespectSyncSpeedAndHideRules()
         {
-            // Unsynced hints should not trigger scheduling when updated.
             Hint unSyncHint = new() { Id = "unsync", SyncSpeed = HintSyncSpeed.UnSync };
             display.AddHint(unSyncHint);
             int beforeUnSyncUpdate = scheduler.Invokes.Count;
@@ -160,26 +153,153 @@ namespace HintServiceMeow.Tests.Core.Utilities
             unSyncHint.FontSize++;
             Assert.AreEqual(beforeUnSyncUpdate, scheduler.Invokes.Count);
 
-            // Hidden hint updates (except Hide itself) should be ignored.
             Hint hiddenHint = new() { Id = "hidden", SyncSpeed = HintSyncSpeed.Fast, Hide = true };
             display.AddHint(hiddenHint);
             int beforeHiddenUpdate = scheduler.Invokes.Count;
             hiddenHint.FontSize++;
             Assert.AreEqual(beforeHiddenUpdate, scheduler.Invokes.Count);
 
-            // Changing Hide itself should trigger a sync-based schedule.
             hiddenHint.Hide = false;
             Assert.IsTrue(scheduler.Invokes.Count > beforeHiddenUpdate);
 
-            // Fast hint should schedule with a short delay and KeepFastest strategy.
-            (float Delay, DelayType DelayType) lastInvoke = scheduler.Invokes[scheduler.Invokes.Count - 1];
-            Console.WriteLine($"Scheduled delay: {lastInvoke.Delay}, strategy: {lastInvoke.DelayType}");
+            (float Delay, DelayType DelayType) lastInvoke = scheduler.Invokes[^1];
             Assert.IsTrue(lastInvoke.Delay <= 0.1f);
             Assert.AreEqual(DelayType.KeepFastest, lastInvoke.DelayType);
         }
 
+        [DataTestMethod]
+        [DataRow(HintSyncSpeed.Fastest, 0f)]
+        [DataRow(HintSyncSpeed.Fast, 0.1f)]
+        [DataRow(HintSyncSpeed.Normal, 0.3f)]
+        [DataRow(HintSyncSpeed.Slow, 1f)]
+        [DataRow(HintSyncSpeed.Slowest, 3f)]
+        public void OnHintUpdate_SyncSpeedBranch_ShouldMapToExpectedSchedule(HintSyncSpeed speed, float expectedMaxWait)
+        {
+            Hint hint = new() { Id = "sync-map", SyncSpeed = speed };
+            display.AddHint(hint);
+            int before = scheduler.Invokes.Count;
+
+            hint.FontSize++;
+
+            Assert.IsTrue(scheduler.Invokes.Count > before);
+            (float Delay, DelayType delayType) invoke = scheduler.Invokes[^1];
+
+            if (speed == HintSyncSpeed.Fastest)
+            {
+                Assert.IsTrue(invoke.Delay <= 0f);
+                Assert.AreEqual(DelayType.Override, invoke.delayType);
+            }
+            else
+            {
+                Assert.AreEqual(DelayType.KeepFastest, invoke.delayType);
+                Assert.IsTrue(invoke.Delay >= 0f);
+                Assert.IsTrue(invoke.Delay <= expectedMaxWait + 0.05f);
+            }
+        }
+
         [TestMethod]
-        // Verify SendHint fans out only to active outputs and tolerates output exceptions.
+        public void ScheduleUpdate_PredictionInWindow_ShouldUsePredictedDelayAndKeepFastest()
+        {
+            Hint updatingHint = new() { Id = "updating", SyncSpeed = HintSyncSpeed.Normal, UpdateAnalyser = new FixedUpdateAnalyser { NextUpdateTime = DateTime.Now.AddSeconds(10) } };
+            Hint predictingHint = new() { Id = "predict", SyncSpeed = HintSyncSpeed.Slowest, UpdateAnalyser = new FixedUpdateAnalyser { NextUpdateTime = DateTime.Now.AddSeconds(0.4) } };
+
+            display.AddHint(updatingHint, predictingHint);
+            int before = scheduler.Invokes.Count;
+
+            updatingHint.FontSize++;
+
+            Assert.IsTrue(scheduler.Invokes.Count > before);
+            (float Delay, DelayType DelayType) invoke = scheduler.Invokes[^1];
+            Assert.AreEqual(DelayType.KeepFastest, invoke.DelayType);
+            Assert.IsTrue(invoke.Delay > 0.2f && invoke.Delay < 0.7f);
+        }
+
+        [TestMethod]
+        public void ScheduleUpdate_PredictionAfterWindow_ShouldClampToMaxWaitingTime()
+        {
+            Hint updatingHint = new() { Id = "updating", SyncSpeed = HintSyncSpeed.Fast, UpdateAnalyser = new FixedUpdateAnalyser { NextUpdateTime = DateTime.Now.AddSeconds(10) } };
+            Hint predictingHint = new() { Id = "predict", SyncSpeed = HintSyncSpeed.Slowest, UpdateAnalyser = new FixedUpdateAnalyser { NextUpdateTime = DateTime.Now.AddSeconds(5) } };
+
+            display.AddHint(updatingHint, predictingHint);
+
+            updatingHint.Hide = true;
+
+            (float Delay, DelayType DelayType) invoke = scheduler.Invokes[^1];
+            Assert.AreEqual(DelayType.KeepFastest, invoke.DelayType);
+            Assert.IsTrue(invoke.Delay >= 0f);
+            Assert.IsTrue(invoke.Delay <= 0.02f);
+        }
+
+        [TestMethod]
+        public void ScheduleUpdate_DateTimeMaxValueAndUpdatingHint_ShouldBeIgnored()
+        {
+            Hint updatingHint = new() { Id = "updating", SyncSpeed = HintSyncSpeed.Slow, UpdateAnalyser = new FixedUpdateAnalyser { NextUpdateTime = DateTime.Now.AddSeconds(0.5) } };
+            Hint ignoredMaxHint = new() { Id = "max", SyncSpeed = HintSyncSpeed.Slowest, UpdateAnalyser = new FixedUpdateAnalyser { NextUpdateTime = DateTime.MaxValue } };
+
+            display.AddHint(updatingHint, ignoredMaxHint);
+
+            updatingHint.FontSize++;
+
+            (float Delay, DelayType DelayType) invoke = scheduler.Invokes[^1];
+            Assert.AreEqual(DelayType.KeepFastest, invoke.DelayType);
+            Assert.IsTrue(invoke.Delay <= 0.02f);
+        }
+
+        [TestMethod]
+        public void RemoveHint_AfterRemoval_PropertyChangesShouldNotSchedule()
+        {
+            Hint hint = new() { Id = "remove", SyncSpeed = HintSyncSpeed.Normal };
+            display.AddHint(hint);
+            scheduler.Invokes.Clear();
+
+            display.RemoveHint(hint);
+            hint.FontSize++;
+
+            Assert.AreEqual(0, scheduler.Invokes.Count);
+        }
+
+        [TestMethod]
+        public void ClearHint_AfterClear_PropertyChangesShouldNotSchedule()
+        {
+            Hint hint = new() { Id = "clear", SyncSpeed = HintSyncSpeed.Normal };
+            display.AddHint(hint);
+            scheduler.Invokes.Clear();
+
+            display.ClearHint();
+            hint.FontSize++;
+
+            Assert.AreEqual(0, scheduler.Invokes.Count);
+        }
+
+        [TestMethod]
+        public void Destruct_AfterDestruct_PropertyChangesShouldNotScheduleOrThrow()
+        {
+            Hint hint = new() { Id = "destruct", SyncSpeed = HintSyncSpeed.Normal };
+            display.AddHint(hint);
+            scheduler.Invokes.Clear();
+
+            ((IDestructible)display).Destruct();
+            hint.FontSize++;
+
+            Assert.AreEqual(0, scheduler.Invokes.Count);
+        }
+
+        [TestMethod]
+        public void RemoveDisplayOutputOfType_ShouldRemoveAllMatchedOutputs()
+        {
+            TestDisplayOutput first = new();
+            TestDisplayOutput second = new();
+            display.AddDisplayOutput(first);
+            display.AddDisplayOutput(second);
+
+            display.RemoveDisplayOutput<TestDisplayOutput>();
+            InvokeSendHint(display, "after-remove-type");
+
+            Assert.AreEqual(0, first.Calls.Count);
+            Assert.AreEqual(0, second.Calls.Count);
+        }
+
+        [TestMethod]
         public void AddRemoveDisplayOutput_AndSendHint_ShouldDeliverToActiveOutputsOnly()
         {
             TestDisplayOutput keepOutput = new();
@@ -191,7 +311,6 @@ namespace HintServiceMeow.Tests.Core.Utilities
             display.AddDisplayOutput(throwOutput);
             display.RemoveDisplayOutput(removeOutput);
 
-            // Removed output must not receive messages; throwing output must not break others.
             InvokeSendHint(display, "hello");
 
             Assert.AreEqual(1, keepOutput.Calls.Count);
@@ -200,7 +319,200 @@ namespace HintServiceMeow.Tests.Core.Utilities
         }
 
         [TestMethod]
-        // Verify compatibility hint calls are forwarded to adaptor with correct payload.
+        public void SchedulerCallback_ShouldPauseParseSendAndResume_WhenPipelineSuccess()
+        {
+            TestMainThreadDispatcher dispatcher = new();
+            TestDisplayOutput output = new();
+            TestTaskScheduler localScheduler = new();
+            PlayerDisplay localDisplay = new(
+                new TestPlayerContext { IsStillValid = false },
+                updateScheduler: localScheduler,
+                adaptor: new TestCompatibilityAdaptor(),
+                hintParser: new DelegateHintParser(_ => "pipeline-success"),
+                coroutineRunner: new TestCoroutineRunner(),
+                dispatcher: dispatcher,
+                displayOutputs: new[] { output });
+
+            try
+            {
+                localScheduler.TriggerScheduledCallback();
+
+                AssertEventually(() => output.Calls.Count == 1 && !localScheduler.IsPaused, 1000, "Parser pipeline did not complete in time");
+                Assert.AreEqual("pipeline-success", output.Calls[0].Content);
+                Assert.IsTrue(dispatcher.DispatchCallCount >= 1);
+            }
+            finally
+            {
+                ((IDestructible)localDisplay).Destruct();
+            }
+        }
+
+        [TestMethod]
+        public void SchedulerCallback_WhenParserThrows_ShouldResumeWithoutSending()
+        {
+            TestMainThreadDispatcher dispatcher = new();
+            TestDisplayOutput output = new();
+            TestTaskScheduler localScheduler = new();
+            PlayerDisplay localDisplay = new(
+                new TestPlayerContext { IsStillValid = false },
+                updateScheduler: localScheduler,
+                adaptor: new TestCompatibilityAdaptor(),
+                hintParser: new DelegateHintParser(_ => throw new InvalidOperationException("parser failure")),
+                coroutineRunner: new TestCoroutineRunner(),
+                dispatcher: dispatcher,
+                displayOutputs: new[] { output });
+
+            try
+            {
+                localScheduler.TriggerScheduledCallback();
+
+                AssertEventually(() => !localScheduler.IsPaused, 1000, "Scheduler should resume after parser exception");
+                Assert.AreEqual(0, output.Calls.Count);
+            }
+            finally
+            {
+                ((IDestructible)localDisplay).Destruct();
+            }
+        }
+
+        [TestMethod]
+        public void SchedulerCallback_WhenParserTaskRunning_ShouldNotStartParallelParserTask()
+        {
+            TestTaskScheduler localScheduler = new();
+            ManualResetEventSlim entered = new(false);
+            ManualResetEventSlim release = new(false);
+            DelegateHintParser blockingParser = new(_ =>
+            {
+                entered.Set();
+                release.Wait(1000);
+                return "done";
+            });
+
+            PlayerDisplay localDisplay = new(
+                new TestPlayerContext { IsStillValid = false },
+                updateScheduler: localScheduler,
+                adaptor: new TestCompatibilityAdaptor(),
+                hintParser: blockingParser,
+                coroutineRunner: new TestCoroutineRunner(),
+                dispatcher: new TestMainThreadDispatcher());
+
+            try
+            {
+                localScheduler.TriggerScheduledCallback();
+                Assert.IsTrue(entered.Wait(500));
+                Assert.IsTrue(localScheduler.IsPaused);
+
+                localScheduler.TriggerScheduledCallback();
+                Thread.Sleep(30);
+
+                Assert.AreEqual(1, blockingParser.ParseCallCount);
+
+                release.Set();
+                AssertEventually(() => !localScheduler.IsPaused, 1000, "Scheduler should resume after blocking parser released");
+            }
+            finally
+            {
+                ((IDestructible)localDisplay).Destruct();
+            }
+        }
+
+        [TestMethod]
+        public void CoroutineMethod_ShouldStop_WhenPlayerContextInvalid()
+        {
+            IEnumerator<float> routine = coroutineRunner.StartedRoutines[0];
+
+            Assert.IsTrue(routine.MoveNext());
+            Assert.AreEqual(-1f, routine.Current);
+            Assert.IsFalse(routine.MoveNext());
+        }
+
+        [TestMethod]
+        public void CoroutineMethod_WhenElapsedOverFiveSeconds_ShouldSchedulePeriodicUpdate()
+        {
+            context.IsStillValid = true;
+            scheduler.Elapsed = TimeSpan.FromSeconds(6);
+            IEnumerator<float> routine = coroutineRunner.StartedRoutines[0];
+
+            Assert.IsTrue(routine.MoveNext());
+            Assert.AreEqual(-1f, routine.Current);
+
+            Assert.IsTrue(routine.MoveNext());
+            Assert.IsTrue(scheduler.Invokes.Any());
+            Assert.IsTrue(scheduler.Invokes[^1].Delay <= 0);
+        }
+
+        [TestMethod]
+        public void CoroutineMethod_WhenSchedulerReady_ShouldInvokeUpdateAvailable()
+        {
+            context.IsStillValid = true;
+            scheduler.IsReadyForNextAction = true;
+            int callCount = 0;
+            display.UpdateAvailable += _ => callCount++;
+
+            IEnumerator<float> routine = coroutineRunner.StartedRoutines[0];
+            Assert.IsTrue(routine.MoveNext());
+            Assert.IsTrue(routine.MoveNext());
+
+            Assert.AreEqual(1, callCount);
+        }
+
+        [TestMethod]
+        public void CoroutineMethod_WhenUpdateAvailableThrows_ShouldYieldBackoffDelay()
+        {
+            context.IsStillValid = true;
+            scheduler.IsReadyForNextAction = true;
+            display.UpdateAvailable += _ => throw new InvalidOperationException("update callback failed");
+            IEnumerator<float> routine = coroutineRunner.StartedRoutines[0];
+
+            Assert.IsTrue(routine.MoveNext());
+            Assert.AreEqual(-1f, routine.Current);
+
+            Assert.IsTrue(routine.MoveNext());
+            Assert.AreEqual(1f, routine.Current);
+        }
+
+        [DataTestMethod]
+        [DataRow(null)]
+        [DataRow("")]
+        public void RemoveHint_StringGuards_ShouldThrow(string? id)
+        {
+            if (id is null)
+                Assert.ThrowsExactly<ArgumentNullException>(() => display.RemoveHint(id!));
+            else
+                Assert.ThrowsExactly<ArgumentException>(() => display.RemoveHint(id));
+        }
+
+        [DataTestMethod]
+        [DataRow(null)]
+        [DataRow("")]
+        public void StringQueryGuards_ShouldThrow(string? id)
+        {
+            if (id is null)
+            {
+                Assert.ThrowsExactly<ArgumentNullException>(() => display.GetHint(id));
+                Assert.ThrowsExactly<ArgumentNullException>(() => display.GetHints(id!));
+                Assert.ThrowsExactly<ArgumentNullException>(() => display.HasHint(id!));
+                Assert.ThrowsExactly<ArgumentNullException>(() => display.TryGetHint(id!, out _));
+                Assert.ThrowsExactly<ArgumentNullException>(() => display.TryGetHints(id, out _));
+            }
+            else
+            {
+                Assert.ThrowsExactly<ArgumentException>(() => display.GetHint(id));
+                Assert.ThrowsExactly<ArgumentException>(() => display.GetHints(id));
+                Assert.ThrowsExactly<ArgumentException>(() => display.HasHint(id));
+                Assert.ThrowsExactly<ArgumentException>(() => display.TryGetHint(id, out _));
+                Assert.ThrowsExactly<ArgumentException>(() => display.TryGetHints(id, out _));
+            }
+        }
+
+        [TestMethod]
+        public void HintParserSetter_AndCompatibilityAdaptorSetter_ShouldGuardNull()
+        {
+            Assert.ThrowsExactly<ArgumentNullException>(() => display.HintParser = null!);
+            Assert.ThrowsExactly<ArgumentNullException>(() => display.CompatibilityAdaptor = null!);
+        }
+
+        [TestMethod]
         public void ShowCompatibilityHint_ShouldForwardToAdaptor()
         {
             display.ShowCompatibilityHint("test-asm", "compat-content", 2.5f);
@@ -211,19 +523,22 @@ namespace HintServiceMeow.Tests.Core.Utilities
             Assert.AreEqual(2.5f, adaptor.Calls[0].Duration, 0.001f);
         }
 
-        [TestMethod]
-        // Verify Destruct propagates cleanup to injected scheduler and adaptor dependencies.
-        public void Destruct_ShouldDestructInjectedSchedulerAndAdaptor()
+        private static void AssertEventually(Func<bool> condition, int timeoutMs, string message)
         {
-            ((IDestructible)display).Destruct();
+            DateTime end = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+            while (DateTime.UtcNow < end)
+            {
+                if (condition())
+                    return;
 
-            Assert.IsTrue(scheduler.IsDestructed);
-            Assert.IsTrue(adaptor.IsDestructed);
+                Thread.Sleep(10);
+            }
+
+            Assert.Fail(message);
         }
 
         private static void InvokeSendHint(PlayerDisplay pd, string text)
         {
-            // SendHint is private; invoke via reflection to test output fan-out behavior directly.
             MethodInfo method = typeof(PlayerDisplay).GetMethod("SendHint", BindingFlags.NonPublic | BindingFlags.Instance)!;
             method.Invoke(pd, [text]);
         }
