@@ -1,5 +1,5 @@
-﻿using HintServiceMeow.Core.Interface;
-using System;
+﻿using System;
+using HintServiceMeow.Core.Interface;
 
 namespace HintServiceMeow.Tests
 {
@@ -7,13 +7,19 @@ namespace HintServiceMeow.Tests
     {
         public void Info(object message)
         {
-            Console.Write("[Test][Info]");
+            Console.Write("[TestLogger][Info]");
             Console.WriteLine(message);
         }
 
         public void Error(object message)
         {
-            Console.Write("[Test][Error]");
+            Console.Write("[TestLogger][Error]");
+            Console.WriteLine(message);
+        }
+
+        public void Debug(object message)
+        {
+            Console.Write("[TestLogger][Debug]");
             Console.WriteLine(message);
         }
     }

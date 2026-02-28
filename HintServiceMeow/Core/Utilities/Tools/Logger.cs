@@ -18,5 +18,10 @@
         {
             LabApi.Features.Console.Logger.Error(message.ToString());
         }
+
+        public void Debug(object message)
+        {
+            LabApi.Features.Console.Logger.Debug(message.ToString(), Plugin.Plugin.Instance.Config.Debug);
+        }
     }
 }
