@@ -14,13 +14,13 @@
     using HintServiceMeow.Core.Utilities.Tools;
     using HintServiceMeow.Core.Utilities.UnityAdapters;
     using HintServiceMeow.Plugin;
-    using HintServiceMeow.Plugin.Commands;
 
     /// <summary>
     /// Adapt raw unity rich text into HSM.
     /// </summary>
     internal class CompatibilityAdaptor : ICompatibilityAdaptor, IDestructible
     {
+        internal static readonly HashSet<string> RegisteredAssemblies = new(); // All assemblies that used compatibility adaptor
         private static readonly ICache<string, IReadOnlyList<Hint>> HintCache = new Cache<string, IReadOnlyList<Hint>>(500);
 
         private readonly Dictionary<string, ICoroutine> removeHandles = new();
@@ -65,7 +65,7 @@
             float duration = Math.Min(ev.Duration, float.MaxValue - 1f);
 
             // Record the assembly that is using the compatibility adaptor
-            GetCompatAssemblyName.RegisteredAssemblies.Add(assemblyName);
+            RegisteredAssemblies.Add(assemblyName);
 
             if (PluginConfig.Instance.DisabledCompatAdapter.Contains(assemblyName) // Config limitation
                 || content.Length > ushort.MaxValue) // Length limitation

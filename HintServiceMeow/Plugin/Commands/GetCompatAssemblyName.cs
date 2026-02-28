@@ -1,15 +1,15 @@
 ﻿namespace HintServiceMeow.Plugin.Commands
 {
     using System;
-    using System.Collections.Generic;
     using System.Text;
     using CommandSystem;
+    using HintServiceMeow.Core.Utilities;
     using HintServiceMeow.Core.Utilities.Pools;
 
     [CommandHandler(typeof(RemoteAdminCommandHandler))]
     internal class GetCompatAssemblyName : ICommand
     {
-        internal static readonly HashSet<string> RegisteredAssemblies = new();
+
 
         public string Command => "GetCompatAssemblyName";
 
@@ -23,7 +23,7 @@
 
             sb.AppendLine("The following assemblies are using Compatibility Adaptor in HintServiceMeow:");
 
-            foreach (string name in RegisteredAssemblies)
+            foreach (string name in CompatibilityAdaptor.RegisteredAssemblies)
             {
                 sb.Append("- ");
                 sb.AppendLine(name);

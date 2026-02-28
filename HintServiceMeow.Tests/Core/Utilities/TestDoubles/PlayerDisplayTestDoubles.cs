@@ -120,6 +120,17 @@ namespace HintServiceMeow.Tests.Core.Utilities.TestDoubles
             LastCoroutine = new TestCoroutine();
             return LastCoroutine;
         }
+
+        public ICoroutine CallAfter(TimeSpan time, Action action)
+        {
+            // For simplicity, treat CallAfter as a special case of StartCoroutine.
+            IEnumerator<float> Routine()
+            {
+                yield return (float)time.TotalSeconds;
+                action();
+            }
+            return StartCoroutine(Routine());
+        }
     }
 
     /// <summary>

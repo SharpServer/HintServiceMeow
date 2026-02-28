@@ -72,7 +72,7 @@ public class CompatibilityAdaptorTests
             coroutineRunner: new TestCoroutineRunner(),
             dispatcher: new TestMainThreadDispatcher());
 
-        return new CompatibilityAdaptor(display, new RecordingPool<RichTextParser>(() => new RichTextParser()));
+        return new CompatibilityAdaptor(display, new RecordingPool<RichTextParser>(() => new RichTextParser()), new TestCoroutineRunner());
     }
 
     private static void EnsurePluginConfig()
