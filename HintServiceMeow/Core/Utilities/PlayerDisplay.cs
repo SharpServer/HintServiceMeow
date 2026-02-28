@@ -590,21 +590,21 @@
                 return;
             }
 
-            LabApi.Features.Console.Logger.Debug($"Scheduling update with max waiting time: {maxWaitingTime}s", Plugin.Plugin.Instance.Config.Debug);
+            Logger.Instance.Debug($"Scheduling update with max waiting time: {maxWaitingTime}s");
             IEnumerable<AbstractHint> predictingHints = displayHints.AllGroups.SelectMany(x => x);
 
-            LabApi.Features.Console.Logger.Debug($"Predicting hints count: {predictingHints.Count()}", Plugin.Plugin.Instance.Config.Debug);
+            Logger.Instance.Debug($"Predicting hints count: {predictingHints.Count()}");
             DateTime now = DateTime.Now;
             DateTime maxTime = now.AddSeconds(maxWaitingTime);
             DateTime delayedUpdateTime = now;
 
-            LabApi.Features.Console.Logger.Debug($"delayed update: {delayedUpdateTime}", Plugin.Plugin.Instance.Config.Debug);
+            Logger.Instance.Debug($"delayed update: {delayedUpdateTime}");
             foreach (var h in predictingHints)
             {
                 if (h.SyncSpeed < updatingHint?.SyncSpeed || h == updatingHint)
                     continue;
 
-                LabApi.Features.Console.Logger.Debug($"Predicting hint: {h.Id} ({h.Guid})", Plugin.Plugin.Instance.Config.Debug);
+                Logger.Instance.Debug($"Predicting hint: {h.Id} ({h.Guid})");
                 DateTime estNextUpdate = h.UpdateAnalyser.EstimateNextUpdate();
 
                 if (estNextUpdate == DateTime.MaxValue)
@@ -612,23 +612,20 @@
 
                 TimeSpan delta = estNextUpdate - now;
 
-                LabApi.Features.Console.Logger.Debug($"Estimated next update time: {estNextUpdate} (in {delta.TotalSeconds}s)", Plugin.Plugin.Instance.Config.Debug);
+                Logger.Instance.Debug($"Estimated next update time: {estNextUpdate} (in {delta.TotalSeconds}s)");
                 // Only consider the updates that will happen within the max waiting time
                 if (estNextUpdate > delayedUpdateTime && estNextUpdate < maxTime)
                     delayedUpdateTime = estNextUpdate;
             }
 
-            LabApi.Features.Console.Logger.Debug($"Final delayed update: {delayedUpdateTime}", Plugin.Plugin.Instance.Config.Debug);
+            Logger.Instance.Debug($"Final delayed update: {delayedUpdateTime}");
             float delay = (float)(delayedUpdateTime - now).TotalSeconds;
 
             // Clamp delay to maxWaitingTime
             // Increase delay by 10% to increase hit rate of prediction
             delay = Math.Min(maxWaitingTime, delay * 1.1f);
 
-            if (delay <= 0)
-                updateScheduler.Invoke();
-            else
-                updateScheduler.Invoke(delay, DelayType.KeepFastest);
+            updateScheduler.Invoke(delay, DelayType.KeepFastest);
         }
 
         private void StartParserTask()
