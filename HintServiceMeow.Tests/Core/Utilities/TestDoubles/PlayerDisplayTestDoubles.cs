@@ -79,6 +79,51 @@ namespace HintServiceMeow.Tests.Core.Utilities.TestDoubles
     }
 
     /// <summary>
+    /// Test coroutine implementation with controllable running state.
+    /// </summary>
+    internal sealed class TestCoroutine : ICoroutine
+    {
+        public bool IsRunning { get; private set; } = true;
+
+        public bool IsPaused { get; private set; }
+
+        public bool IsKilled { get; private set; }
+
+        public void Kill()
+        {
+            IsKilled = true;
+            IsRunning = false;
+        }
+
+        public void Pause()
+        {
+            IsPaused = true;
+        }
+
+        public void Resume()
+        {
+            IsPaused = false;
+        }
+    }
+
+    /// <summary>
+    /// Coroutine runner test double that records started routines.
+    /// </summary>
+    internal sealed class TestCoroutineRunner : ICoroutineRunner
+    {
+        public List<IEnumerator<float>> StartedRoutines { get; } = [];
+
+        public TestCoroutine LastCoroutine { get; private set; } = null!;
+
+        public ICoroutine StartCoroutine(IEnumerator<float> routine)
+        {
+            StartedRoutines.Add(routine);
+            LastCoroutine = new TestCoroutine();
+            return LastCoroutine;
+        }
+    }
+
+    /// <summary>
     /// Compatibility adaptor test double that records forwarding calls.
     /// </summary>
     internal sealed class TestCompatibilityAdaptor : ICompatibilityAdaptor, IDestructible
