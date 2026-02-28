@@ -1,4 +1,4 @@
-﻿namespace HintServiceMeow.Core.Utilities
+﻿namespace HintServiceMeow.Core.Utilities.UnityAdapters
 {
     using System;
     using HintServiceMeow.Core.Interface;
@@ -6,11 +6,11 @@
     using HintServiceMeow.Core.Utilities.Tools;
     using Mirror;
 
-    internal class DefaultDisplayOutput : IDisplayOutput
+    internal class ScpslDisplayOutput : IDisplayOutput
     {
         private readonly NetworkConnection? connectionToPlayer;
 
-        public DefaultDisplayOutput(NetworkConnection connectionToPlayer)
+        public ScpslDisplayOutput(NetworkConnection connectionToPlayer)
         {
             this.connectionToPlayer = connectionToPlayer ?? throw new ArgumentNullException(nameof(connectionToPlayer), "NetworkConnection cannot be null");
         }

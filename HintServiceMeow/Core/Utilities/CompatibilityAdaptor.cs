@@ -17,7 +17,7 @@
     using MEC;
 
     /// <summary>
-    /// Used to adapt other plugins' hint system to HintServiceMeow's hint system.
+    /// Adapt raw unity rich text into HSM.
     /// </summary>
     internal class CompatibilityAdaptor : ICompatibilityAdaptor, IDestructible
     {

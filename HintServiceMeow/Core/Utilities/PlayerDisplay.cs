@@ -14,7 +14,7 @@
     using HintServiceMeow.Core.Models.Hints;
     using HintServiceMeow.Core.Utilities.Parser;
     using HintServiceMeow.Core.Utilities.Tools;
-    using MEC;
+    using HintServiceMeow.Core.Utilities.UnityAdapters;
 
     /// <summary>
     /// Represent a player's display. This class is used to manage hints and update hint to player's display.
@@ -26,7 +26,7 @@
 
         private readonly List<IDisplayOutput> displayOutputs = [];
 
-        private readonly IPlayerContext playerContext;
+        private readonly IPlayerContext playerContext; // Initialize in constructor
         private readonly HintCollection displayHints = new();
         private readonly ITaskScheduler updateScheduler; // Initialize in constructor
 
@@ -36,11 +36,14 @@
         private IHintParser hintParser = new HintParser();
         private ICompatibilityAdaptor adapter; // Initialize in constructor
 
-        private CoroutineHandle coroutine; // Initialize in constructor
+        private IMainThreadDispatcher dispatcher = new UnityAdapters.UnityMainThreadDispatcher();
+
+        private ICoroutine coroutine; // Initialize in constructor
+        private ICoroutineRunner coroutineRunner = new UnityCoroutineRunner();
 
         private Task? currentParserTask;
 
-        private bool isDestroyed = false;
+        private bool isDestructed = false;
 
         internal PlayerDisplay(
             IPlayerContext playerContext,
@@ -48,7 +51,9 @@
             ITaskScheduler? updateScheduler = null,
             ICompatibilityAdaptor? adaptor = null,
             IHintParser? hintParser = null,
-            IEnumerable<IDisplayOutput>? displayOutputs = null)
+            IEnumerable<IDisplayOutput>? displayOutputs = null,
+            IMainThreadDispatcher? dispatcher = null,
+            ICoroutineRunner? coroutineRunner = null)
         {
             // Initialize each components
             this.playerContext = playerContext ?? throw new ArgumentNullException(nameof(playerContext));
@@ -59,6 +64,10 @@
                 this.hintParser = hintParser;
             if (displayOutputs != null)
                 this.displayOutputs = displayOutputs.ToList();
+            if (dispatcher != null)
+                this.dispatcher = dispatcher;
+            if (coroutineRunner != null)
+                this.coroutineRunner = coroutineRunner;
 
             adapter = adaptor ?? new CompatibilityAdaptor(this); // Default compatibility adaptor
             this.updateScheduler = updateScheduler ?? new TaskScheduler(); // Default task scheduler with zero interval
@@ -74,7 +83,7 @@
             });
 
             // Start the main coroutine on main thread
-            MainThreadDispatcher.Dispatch(() => coroutine = Timing.RunCoroutine(CoroutineMethod()));
+            this.coroutineRunner.StartCoroutine(CoroutineMethod());
         }
 
         private PlayerDisplay(ReferenceHub referenceHub)
@@ -87,7 +96,7 @@
             if (referenceHub.IsHost)
                 return;
 
-            displayOutputs.Add(new DefaultDisplayOutput(referenceHub.connectionToClient));
+            displayOutputs.Add(new ScpslDisplayOutput(referenceHub.connectionToClient));
         }
 
         public delegate void UpdateAvailableEventHandler(UpdateAvailableEventArg ev);
@@ -393,9 +402,9 @@
 
         void IDestructible.Destruct()
         {
-            isDestroyed = true; // Mark as destroyed to prevent further actions
+            isDestructed = true; // Mark as destroyed to prevent further actions
 
-            Timing.KillCoroutines(coroutine); // Stop coroutine
+            coroutine.Kill(); // Stop coroutine
             UpdateAvailable = null; // Clear event
 
             // Clear collection's reference to this pd
@@ -509,7 +518,7 @@
         {
             while (true)
             {
-                yield return Timing.WaitForOneFrame;
+                yield return -1f;
 
                 // If player has quit, then stop the coroutine
                 if (!playerContext.IsValid())
@@ -538,7 +547,7 @@
                 // If the update is not successful, wait for a while before trying again so that it will not stuck the log.
                 if (!isSuccessful)
                 {
-                    yield return Timing.WaitForSeconds(1f);
+                    yield return 1f;
                 }
             }
         }
@@ -638,12 +647,12 @@
                         {
                             richText = hintParser.ParseToMessage(displayHints);
 
-                            MainThreadDispatcher.Dispatch(() =>
+                            dispatcher.Dispatch(() =>
                             {
                                 try
                                 {
                                     // If destroyed while waiting for main thread, skip the update
-                                    if (this.isDestroyed)
+                                    if (this.isDestructed)
                                         return;
 
                                     SendHint(richText);
