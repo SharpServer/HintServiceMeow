@@ -83,7 +83,7 @@
             });
 
             // Start the main coroutine on main thread
-            this.coroutineRunner.StartCoroutine(CoroutineMethod());
+            coroutine = this.coroutineRunner.StartCoroutine(CoroutineMethod());
         }
 
         private PlayerDisplay(ReferenceHub referenceHub)
