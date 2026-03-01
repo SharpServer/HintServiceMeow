@@ -108,7 +108,7 @@
 
             foreach (List<Hint> hintList in orderedHintGroups)
             {
-                if (hintList.IsEmpty())
+                if (!hintList.Any())
                     continue;
 
                 foreach (Hint hint in hintList)
@@ -234,7 +234,7 @@
             IReadOnlyList<LineInfo> lineList = parser.ParseText(text, hint.FontSize);
             richTextParserPool.Return(parser);
 
-            if (lineList.IsEmpty())
+            if (!lineList.Any())
                 return null;
 
             // Get the bottom y coordinate of first line
