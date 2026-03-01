@@ -20,6 +20,7 @@
 
         public void Return(RichTextParser parser)
         {
+            parser.ClearStatus();
             richTextParserQueue.Enqueue(parser);
         }
     }

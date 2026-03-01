@@ -331,30 +331,14 @@ namespace HintServiceMeow.Tests.Pools
         #region Boundary
 
         [TestMethod]
-        public void Return_Null_DoesNotCorruptPool()
+        public void Return_Null_Throw()
         {
             // Arrange
             var pool = RichTextParserPool.Instance;
 
             // Act - Return(null) enqueues null into the ConcurrentQueue
-            pool.Return(null);
-
-            // Rent should return the null entry, then a new parser
-            var first = pool.Rent();
-
-            // Assert - the null was dequeued, but next Rent creates a new parser
-            // ConcurrentQueue.Enqueue accepts null, so first item dequeued is null
-            // This demonstrates that Return(null) silently corrupts the pool
-            if (first == null)
-            {
-                // Pool was corrupted by null entry - rent again to get a valid parser
-                var second = pool.Rent();
-                Assert.IsNotNull(second, "Pool should create new parser after null was dequeued");
-            }
-            else
-            {
-                Assert.IsNotNull(first);
-            }
+            Assert.Throws<NullReferenceException>(() => pool.Return(null),
+                "Returning null should throw an exception to prevent pool corruption");
         }
 
         [TestMethod]
