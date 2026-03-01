@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Linq;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using HintServiceMeow.Core.Models.Arguments;
@@ -39,9 +38,9 @@ namespace HintServiceMeow.Tests.HintContent
             return ReflectionHelper.GetFieldValue<DateTime>(content, "nextUpdateTime");
         }
 
-        private static TimeSpan GetDefaultUpdateTime(AutoContent content)
+        private static TimeSpan GetDefaultUpdateInterval(AutoContent content)
         {
-            return ReflectionHelper.GetFieldValue<TimeSpan>(content, "defaultUpdateTime");
+            return ReflectionHelper.GetFieldValue<TimeSpan>(content, "defaultUpdateInterval");
         }
 
         #region Constructor
@@ -274,7 +273,7 @@ namespace HintServiceMeow.Tests.HintContent
             var content = new AutoContent(ev => "text");
 
             // Act
-            TimeSpan defaultTime = GetDefaultUpdateTime(content);
+            TimeSpan defaultTime = GetDefaultUpdateInterval(content);
 
             // Assert
             Assert.AreEqual(TimeSpan.FromSeconds(0.1), defaultTime);
