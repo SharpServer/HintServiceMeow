@@ -14,7 +14,7 @@
     using HintServiceMeow.Core.Models.Hints;
     using HintServiceMeow.Core.Utilities.Parser;
     using HintServiceMeow.Core.Utilities.Tools;
-    using HintServiceMeow.Core.Utilities.UnityAdapters;
+    using HintServiceMeow.Core.Utilities.UnityAdaptors;
 
     /// <summary>
     /// Represent a player's display. This class is used to manage hints and update hint to player's display.
@@ -36,7 +36,7 @@
         private IHintParser hintParser = new HintParser();
         private ICompatibilityAdaptor adapter; // Initialize in constructor
 
-        private IMainThreadDispatcher dispatcher = new UnityAdapters.UnityMainThreadDispatcher();
+        private IMainThreadDispatcher dispatcher = new UnityAdaptors.UnityMainThreadDispatcher();
 
         private ICoroutine coroutine; // Initialize in constructor
         private ICoroutineRunner coroutineRunner = new UnityCoroutineRunner();

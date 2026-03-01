@@ -12,7 +12,7 @@
     using HintServiceMeow.Core.Utilities.Parser;
     using HintServiceMeow.Core.Utilities.Pools;
     using HintServiceMeow.Core.Utilities.Tools;
-    using HintServiceMeow.Core.Utilities.UnityAdapters;
+    using HintServiceMeow.Core.Utilities.UnityAdaptors;
     using HintServiceMeow.Plugin;
 
     /// <summary>

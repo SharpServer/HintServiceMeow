@@ -1,4 +1,4 @@
-﻿namespace HintServiceMeow.Core.Utilities.UnityAdapters
+﻿namespace HintServiceMeow.Core.Utilities.UnityAdaptors
 {
     using System;
     using System.Collections.Generic;
