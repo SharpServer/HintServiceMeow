@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Text;
 using HintServiceMeow.Core.Enum;
 using HintServiceMeow.Core.Models;

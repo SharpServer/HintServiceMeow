@@ -9,8 +9,6 @@
     [CommandHandler(typeof(RemoteAdminCommandHandler))]
     internal class GetCompatAssemblyName : ICommand
     {
-
-
         public string Command => "GetCompatAssemblyName";
 
         public string[] Aliases => Array.Empty<string>();

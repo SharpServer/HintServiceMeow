@@ -613,6 +613,7 @@
                 TimeSpan delta = estNextUpdate - now;
 
                 Logger.Instance.Debug($"Estimated next update time: {estNextUpdate} (in {delta.TotalSeconds}s)");
+
                 // Only consider the updates that will happen within the max waiting time
                 if (estNextUpdate > delayedUpdateTime && estNextUpdate < maxTime)
                     delayedUpdateTime = estNextUpdate;
