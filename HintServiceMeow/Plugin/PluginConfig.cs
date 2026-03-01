@@ -16,7 +16,7 @@
         public bool Debug { get; set; } = false;
 
         [Description("By using this feature, it might make plugin that is imcompatible with HintServiceMeow compatible. This is a experimental feature")]
-        public bool UseHintCompatibilityAdapter { get; set; } = true;
+        public bool UseHintCompatibilityAdapter { get; set; } = false;
 
         [Description("The assembly that you do not want to included in the Compatibility Adapter. Use command GetCompatAssemblyName to get the name of all the assemblies")]
         public List<string> DisabledCompatAdapter { get; set; } =
