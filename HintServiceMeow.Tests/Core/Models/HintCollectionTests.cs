@@ -1,9 +1,9 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Collections.Concurrent;
-using System.Collections.Specialized;
 using HintServiceMeow.Core.Models;
 using HintServiceMeow.Core.Models.Hints;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -75,7 +75,7 @@ public class HintCollectionTests
         HintCollection collection = new();
         ConcurrentBag<Exception> errors = [];
 
-        Parallel.For(0, 200, i =>
+        Parallel.For(0, 2000, i =>
         {
             try
             {
@@ -85,11 +85,12 @@ public class HintCollectionTests
             }
             catch (Exception ex)
             {
+                Console.WriteLine(ex);
                 errors.Add(ex);
             }
         });
 
         Assert.AreEqual(0, errors.Count);
-        Assert.AreEqual(200, collection.AllHints.Count);
+        Assert.AreEqual(2000, collection.AllHints.Count);
     }
 }

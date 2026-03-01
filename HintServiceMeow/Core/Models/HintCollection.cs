@@ -151,11 +151,9 @@
                                 continue;
 
                             // If the hint satisfies the predicate, remove it from the collection.
-                            if (collection.Remove(hint))
-                            {
-                                updatedHints.Add(hint);
-                                i--;
-                            }
+                            collection.RemoveAt(i);
+                            updatedHints.Add(hint);
+                            i--;
                         }
                     }
 
@@ -228,8 +226,12 @@
 
         private void OnCollectionChanged(NotifyCollectionChangedEventArgs argument)
         {
-            allGroupsCache = null;
-            allHintsCache = null;
+            lock (collectionLock)
+            {
+                // Clear caches on any collection change.
+                allGroupsCache = null;
+                allHintsCache = null;
+            }
 
             CollectionChanged?.Invoke(this, argument);
         }

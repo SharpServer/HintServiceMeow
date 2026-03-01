@@ -147,6 +147,25 @@
             return new List<LineInfo>(lines).AsReadOnly();
         }
 
+        public void ClearStatus()
+        {
+            index = 0;
+            currentRawLineText.Clear();
+
+            currentLineAlignment = HintAlignment.Center;
+            hintAlignmentStack.Clear();
+
+            pos = 0;
+            lineHeight = float.MinValue;
+            hasLineHeight = false;
+
+            vOffset = 0;
+            style = TextStyle.Normal;
+            fontSizeStack.Clear();
+            caseStyleStack.Clear();
+            scriptStyles.Clear();
+        }
+
         private static bool TryParseLineHeight(string tag, out float height)
         {
             Match lineHeightMatch = Regex.Match(tag, RegexPatterns.LineHeightTagRegexPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -315,25 +334,6 @@
                 vOffset);
 
             return chInfo;
-        }
-
-        private void ClearStatus()
-        {
-            index = 0;
-            currentRawLineText.Clear();
-
-            currentLineAlignment = HintAlignment.Center;
-            hintAlignmentStack.Clear();
-
-            pos = 0;
-            lineHeight = float.MinValue;
-            hasLineHeight = false;
-
-            vOffset = 0;
-            style = TextStyle.Normal;
-            fontSizeStack.Clear();
-            caseStyleStack.Clear();
-            scriptStyles.Clear();
         }
 
         private void ClearLineStatus() // Clear status that applies to current line

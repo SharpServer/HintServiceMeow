@@ -7,15 +7,19 @@
     public class AutoContent : AbstractHintContent
     {
         private DateTime nextUpdateTime;
-        private TimeSpan defaultUpdateTime = TimeSpan.FromSeconds(0.1);
+        private TimeSpan defaultUpdateInterval;
 
         private string? text;
 
         private TextUpdateHandler? autoText;
 
-        public AutoContent(TextUpdateHandler? autoText)
+        public AutoContent(TextUpdateHandler? autoText, float defaultUpdateInterval = -1)
         {
             this.autoText = autoText;
+            if (defaultUpdateInterval >= 0)
+                this.defaultUpdateInterval = TimeSpan.FromSeconds(defaultUpdateInterval);
+            else
+                this.defaultUpdateInterval = TimeSpan.FromSeconds(0.1);
         }
 
         public delegate string TextUpdateHandler(AutoContentUpdateArg ev);
@@ -37,26 +41,27 @@
             if (nextUpdateTime > DateTime.Now)
                 return;
 
-            AutoContentUpdateArg autoContentUpdateArg = new(ev.Hint, ev.PlayerDisplay, defaultUpdateTime);
+            AutoContentUpdateArg autoContentUpdateArg = new(ev.Hint, ev.PlayerDisplay, defaultUpdateInterval);
+            string? newText;
 
             try
             {
-                string? newText = autoText?.Invoke(autoContentUpdateArg);
-
-                if (text != newText)
-                {
-                    text = newText;
-                    OnUpdated();
-                }
-
-                nextUpdateTime = DateTime.Now.Add(autoContentUpdateArg.NextUpdateDelay);
-                defaultUpdateTime = autoContentUpdateArg.DefaultUpdateDelay;
+                newText = autoText?.Invoke(autoContentUpdateArg);
             }
             catch (Exception ex)
             {
-                text = string.Empty;
+                newText = string.Empty;
                 Logger.Instance.Error(ex);
             }
+
+            if (text != newText)
+            {
+                text = newText;
+                OnUpdated();
+            }
+
+            nextUpdateTime = DateTime.Now.Add(autoContentUpdateArg.NextUpdateDelay);
+            defaultUpdateInterval = autoContentUpdateArg.DefaultUpdateDelay;
         }
     }
 }
