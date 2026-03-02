@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using HintServiceMeow.Core.Enum;
+using HintServiceMeow.Core.Models.Parser;
 using HintServiceMeow.Core.Utilities.Parser;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -23,7 +24,7 @@ public class RichTextParserTests
     {
         RichTextParser parser = new();
 
-        IReadOnlyList<HintServiceMeow.Core.Models.LineInfo> lines = parser.ParseText("A<br>B", 20);
+        IReadOnlyList<LineInfo> lines = parser.ParseText("A<br>B", 20);
 
         Assert.AreEqual(2, lines.Count);
         Assert.AreEqual("A\n", lines[0].RawText);
@@ -35,7 +36,7 @@ public class RichTextParserTests
     {
         RichTextParser parser = new();
 
-        IReadOnlyList<HintServiceMeow.Core.Models.LineInfo> lines = parser.ParseText("<uppercase>a</uppercase>", 20);
+        IReadOnlyList<LineInfo> lines = parser.ParseText("<uppercase>a</uppercase>", 20);
 
         Assert.AreEqual('A', lines[0].Characters[0].Character);
     }
@@ -45,7 +46,7 @@ public class RichTextParserTests
     {
         RichTextParser parser = new();
 
-        IReadOnlyList<HintServiceMeow.Core.Models.LineInfo> lines = parser.ParseText("<foo><size=x>ab</bar>", 20);
+        IReadOnlyList<LineInfo> lines = parser.ParseText("<foo><size=x>ab</bar>", 20);
 
         Assert.IsTrue(lines.Count >= 1);
         Assert.IsTrue(lines[0].Characters.Count >= 2);
@@ -57,8 +58,8 @@ public class RichTextParserTests
     {
         RichTextParser parser = new();
 
-        IReadOnlyList<HintServiceMeow.Core.Models.LineInfo> first = parser.ParseText("cache", 20);
-        IReadOnlyList<HintServiceMeow.Core.Models.LineInfo> second = parser.ParseText("cache", 20);
+        IReadOnlyList<LineInfo> first = parser.ParseText("cache", 20);
+        IReadOnlyList<LineInfo> second = parser.ParseText("cache", 20);
 
         Assert.AreNotSame(first, second);
         Assert.AreEqual(first[0].RawText, second[0].RawText);
@@ -74,7 +75,7 @@ public class RichTextParserTests
         {
             try
             {
-                IReadOnlyList<HintServiceMeow.Core.Models.LineInfo> lines = parser.ParseText("<b>abc</b>", 20, HintAlignment.Left);
+                IReadOnlyList<LineInfo> lines = parser.ParseText("<b>abc</b>", 20, HintAlignment.Left);
                 if (lines.Count == 0)
                     throw new InvalidOperationException("No lines parsed");
             }

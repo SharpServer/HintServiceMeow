@@ -2,8 +2,8 @@
 {
     using System.Collections.Generic;
     using HintServiceMeow.Core.Enum;
-    using HintServiceMeow.Core.Models;
     using HintServiceMeow.Core.Models.Hints;
+    using HintServiceMeow.Core.Models.Parser;
 
     internal interface ICoordinateTools
     {

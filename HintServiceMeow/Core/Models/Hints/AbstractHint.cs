@@ -392,6 +392,29 @@
             Content.TryUpdate(new ContentUpdateArg(this, ev.PlayerDisplay));
         }
 
+        /// <summary>
+        /// Not thread friendly, should only be used in pool.
+        /// </summary>
+        /// <param name="copyFrom">Copy parameter from.</param>
+        internal void CopyFieldsFrom(AbstractHint copyFrom)
+        {
+            this.id = copyFrom.id;
+            this.syncSpeed = copyFrom.syncSpeed;
+            this.fontSize = copyFrom.fontSize;
+            this.lineHeight = copyFrom.lineHeight;
+            this.content = copyFrom.content;
+            this.hide = copyFrom.hide;
+        }
+
+        /// <summary>
+        /// Not thread friendly, should only be used in pool.
+        /// </summary>
+        internal void ResetFields()
+        {
+            this.id = string.Empty;
+            this.content = null!;
+        }
+
         protected virtual void OnHintUpdated(string argumentName)
         {
             analyser.OnUpdate();
@@ -403,7 +426,6 @@
         {
             OnHintUpdated("Content");
         }
-
         #endregion
     }
 }

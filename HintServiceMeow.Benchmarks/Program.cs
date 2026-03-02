@@ -19,7 +19,7 @@ namespace MyProject.Benchmarks
         public MyMonoConfig()
         {
             // Run once using the default Windows .NET Framework 4.8
-            AddJob(Job.Default.WithRuntime(ClrRuntime.Net48));
+            //AddJob(Job.Default.WithRuntime(ClrRuntime.Net48));
 
             // Run again using the Mono runtime (requires "mono" to be configured in your Windows environment variables)
             // If the environment variable is not set, you can manually specify the path using the line below:
@@ -42,10 +42,10 @@ namespace MyProject.Benchmarks
     {
         // The [Params] attribute is very powerful; it injects the values below into the test 
         // to evaluate performance across different data scales.
-        [Params(10, 100)]
+        [Params(100)]
         public int RegularHints;
 
-        [Params(10, 100)]
+        [Params(100)]
         public int DynamicHints;
 
         // [Benchmark] marks this as a method to be tested

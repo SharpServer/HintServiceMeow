@@ -7,7 +7,7 @@
     using System.Text.RegularExpressions;
     using HintServiceMeow.Core.Enum;
     using HintServiceMeow.Core.Interface;
-    using HintServiceMeow.Core.Models;
+    using HintServiceMeow.Core.Models.Parser;
     using HintServiceMeow.Core.Utilities.Tools;
 
     /// <summary>

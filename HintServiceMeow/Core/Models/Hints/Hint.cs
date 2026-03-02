@@ -195,5 +195,21 @@
                 }
             }
         }
+
+        /// <summary>
+        /// Not thread safe. Should only be used in pool.
+        /// </summary>
+        /// <param name="dynamicHint">The dynamic hint to be transform.</param>
+        /// <param name="x">The X Coordinate.</param>
+        /// <param name="y">The Y Coordinate.</param>
+        internal void Set(DynamicHint dynamicHint, float x, float y)
+        {
+            this.CopyFieldsFrom(dynamicHint);
+
+            this.xCoordinate = x;
+            this.yCoordinate = y;
+            this.alignment = HintAlignment.Center;
+            this.yCoordinateAlign = HintVerticalAlign.Bottom;
+        }
     }
 }

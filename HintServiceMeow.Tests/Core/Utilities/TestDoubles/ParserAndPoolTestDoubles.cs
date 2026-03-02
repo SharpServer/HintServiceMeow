@@ -3,8 +3,8 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using HintServiceMeow.Core.Enum;
 using HintServiceMeow.Core.Interface;
-using HintServiceMeow.Core.Models;
 using HintServiceMeow.Core.Models.Hints;
+using HintServiceMeow.Core.Models.Parser;
 
 namespace HintServiceMeow.Tests.Core.Utilities.TestDoubles;
 

@@ -1,4 +1,4 @@
-﻿namespace HintServiceMeow.Core.Models
+﻿namespace HintServiceMeow.Core.Models.Parser
 {
     using System;
     using System.Collections.Generic;
