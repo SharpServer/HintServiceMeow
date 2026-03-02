@@ -42,6 +42,7 @@
         private int indexPTM2 = 0; // Parse to message 2
         private int indexPTH = 0; // Parse to hint
         private int indexPTRT = 0; // Parse to rich text
+        private int indexRIT = 0; // Remove illegal tags
 
         public HintParser(
             ICache<Guid, ValueTuple<float, float>>? dynamicHintPositionCache = null,
@@ -299,8 +300,7 @@
         private void ParseToRichText(Hint hint, StringBuilder messageBuilder)
         {
             // Remove illegal tags
-            string raw = hint.Content.GetText() ?? string.Empty;
-            string text = RemoveIllegalTags(raw);
+            string text = RemoveIllegalTags(hint.Content.GetText() ?? string.Empty);
 
             // Parse into line infos
             RichTextParser parser = richTextParserPool.Rent();
@@ -359,49 +359,69 @@
                 return string.Empty;
 
             // Skip if no tag
-            if (raw.IndexOf('<') == -1 && raw.IndexOf('{') == -1 && raw.IndexOf('}') == -1)
+            bool needsModification = false;
+            for (int indexRIT = 0; indexRIT < raw.Length; indexRIT++)
+            {
+                char c = raw[indexRIT];
+                if (c == '{' || c == '}')
+                {
+                    needsModification = true;
+                    break;
+                }
+
+                if (c == '<' &&
+                    (StartsWithIgnoreCase(raw, indexRIT, "<line-height=") ||
+                     StartsWithIgnoreCase(raw, indexRIT, "<voffset=") ||
+                     StartsWithIgnoreCase(raw, indexRIT, "<pos=") ||
+                     StartsWithIgnoreCase(raw, indexRIT, "</voffset>")))
+                {
+                    needsModification = true;
+                    break;
+                }
+            }
+
+            if (!needsModification)
                 return raw;
 
             StringBuilder sb = stringBuilderPool.Rent();
 
-            int i = 0;
             int length = raw.Length;
 
-            while (i < length)
+            while (indexRIT < length)
             {
-                char c = raw[i];
+                char c = raw[indexRIT];
 
                 // Remove all { and } since {} are somehow not displayable
                 if (c == '{' || c == '}')
                 {
-                    i++;
+                    indexRIT++;
                     continue;
                 }
 
                 // Remove all illegal tags
                 if (c == '<')
                 {
-                    if (StartsWithIgnoreCase(raw, i, "<line-height=") ||
-                        StartsWithIgnoreCase(raw, i, "<voffset=") ||
-                        StartsWithIgnoreCase(raw, i, "<pos="))
+                    if (StartsWithIgnoreCase(raw, indexRIT, "<line-height=") ||
+                        StartsWithIgnoreCase(raw, indexRIT, "<voffset=") ||
+                        StartsWithIgnoreCase(raw, indexRIT, "<pos="))
                     {
-                        int closeIndex = raw.IndexOf('>', i);
+                        int closeIndex = raw.IndexOf('>', indexRIT);
                         if (closeIndex != -1)
                         {
-                            i = closeIndex + 1; // Skip the whole tag
+                            indexRIT = closeIndex + 1; // Skip the whole tag
                             continue;
                         }
                     }
-                    else if (StartsWithIgnoreCase(raw, i, "</voffset>"))
+                    else if (StartsWithIgnoreCase(raw, indexRIT, "</voffset>"))
                     {
-                        i += 10; // Skip "</voffset>"
+                        indexRIT += 10; // Skip "</voffset>"
                         continue;
                     }
                 }
 
                 // If not illegal, reserve the character
                 sb.Append(c);
-                i++;
+                indexRIT++;
             }
 
             string result = sb.ToString();
