@@ -61,15 +61,16 @@ namespace MyProject.Benchmarks
             {
                 var staticHint = new Hint
                 {
-                    // 故意混杂合法与需要被 Regex 剔除的非法标签，增加正则处理压力
+                    // Intentionally mixing valid tags with illegal tags that need to be removed by Regex 
+                    // to increase the pressure on Regex processing.
                     Text = $"<color=red>Static Block {i}</color> <pos={i}>Illegal</pos> <voffset=99>Tag</voffset>",
-                    XCoordinate = (i % 30) * 40 - 600, // 均匀散布在 -600 到 600 的 X 轴上
-                    YCoordinate = (i / 30) * 45,       // 均匀散布在 0 到 900 的 Y 轴上
+                    XCoordinate = (i % 30) * 40 - 600, // Evenly distributed across the X-axis from -600 to 600
+                    YCoordinate = (i / 30) * 45,       // Evenly distributed across the Y-axis from 0 to 900
                     FontSize = 20 + (i % 10),
                     LineHeight = 1.2f,
                     Alignment = (HintAlignment)(i % 3)
                 };
-                // 分散到不同的 Assembly 中，增加遍历 allGroups 时的分组处理压力
+                // Distribute into different Assemblies to increase the grouping overhead when traversing allGroups.
                 collection.AddHint($"Assembly_Static_{i % 5}", staticHint);
             }
 
@@ -78,8 +79,8 @@ namespace MyProject.Benchmarks
                 var dynamicHint = new DynamicHint
                 {
                     Text = $"<size=24>Dynamic Competitor {i}</size> {{IllegalBraces}} <line-height=0>",
-                    TargetX = 0,   // 全部试图挤在中心
-                    TargetY = 500, // 全部试图挤在中心
+                    TargetX = 0,   // All attempting to crowd the center
+                    TargetY = 500, // All attempting to crowd the center
                     LeftBoundary = -1000,
                     RightBoundary = 1000,
                     TopBoundary = 1000,
@@ -88,15 +89,16 @@ namespace MyProject.Benchmarks
                     BottomMargin = 2,
                     LeftMargin = 5,
                     RightMargin = 5,
-                    Priority = (HintPriority)(i % 5), // 混合不同优先级，触发动态提示的降序 Sort 逻辑
-                    Strategy = DynamicHintStrategy.StayInPosition // 如果找不到位置也强制生成，增加后续字符串拼接的负担
+                    Priority = (HintPriority)(i % 5), // Mix different priorities to trigger the descending Sort logic for dynamic hints
+                    Strategy = DynamicHintStrategy.StayInPosition // Force generation even if no position is found, increasing string concatenation load
                 };
                 collection.AddHint($"Assembly_Dynamic_{i % 3}", dynamicHint);
             }
 
             string resultMessage = parser.ParseToMessage(collection);
 
-            // 确保结果不会被编译器优化掉 (如果框架需要断言，可以在这里对 resultMessage.Length 进行粗略断言)
+            // Ensure the result is not optimized away by the compiler 
+            // (If the framework requires assertions, a rough check on resultMessage.Length can be done here).
             if (string.IsNullOrEmpty(resultMessage))
             {
                 throw new Exception("Parsed message should not be empty in this complex scenario.");
@@ -113,21 +115,21 @@ namespace MyProject.Benchmarks
             {
                 var staticHint = new Hint
                 {
-                    // 故意混杂合法与需要被 Regex 剔除的非法标签，增加正则处理压力
+                    // Intentionally mixing valid tags with illegal tags that need to be removed by Regex 
+                    // to increase the pressure on Regex processing.
                     Text = $"<color=red>Static Block {i}</color> <pos={i}>Illegal</pos> <voffset=99>Tag</voffset>",
-                    XCoordinate = (i % 30) * 40 - 600, // 均匀散布在 -600 到 600 的 X 轴上
-                    YCoordinate = (i / 30) * 45,       // 均匀散布在 0 到 900 的 Y 轴上
+                    XCoordinate = (i % 30) * 40 - 600, // Evenly distributed across the X-axis from -600 to 600
+                    YCoordinate = (i / 30) * 45,       // Evenly distributed across the Y-axis from 0 to 900
                     FontSize = 20 + (i % 10),
                     LineHeight = 1.2f,
                     Alignment = (HintAlignment)(i % 3)
                 };
-                // 分散到不同的 Assembly 中，增加遍历 allGroups 时的分组处理压力
+                // Distribute into different Assemblies to increase grouping overhead
                 collection.AddHint($"Assembly_Static_{i % 5}", staticHint);
             }
 
             string resultMessage = parser.ParseToMessage(collection);
 
-            // 确保结果不会被编译器优化掉 (如果框架需要断言，可以在这里对 resultMessage.Length 进行粗略断言)
             if (string.IsNullOrEmpty(resultMessage))
             {
                 throw new Exception("Parsed message should not be empty in this complex scenario.");
@@ -145,8 +147,8 @@ namespace MyProject.Benchmarks
                 var dynamicHint = new DynamicHint
                 {
                     Text = $"<size=24>Dynamic Competitor {i}</size> {{IllegalBraces}} <line-height=0>",
-                    TargetX = 0,   // 全部试图挤在中心
-                    TargetY = 500, // 全部试图挤在中心
+                    TargetX = 0,
+                    TargetY = 500,
                     LeftBoundary = -1000,
                     RightBoundary = 1000,
                     TopBoundary = 1000,
@@ -155,15 +157,14 @@ namespace MyProject.Benchmarks
                     BottomMargin = 2,
                     LeftMargin = 5,
                     RightMargin = 5,
-                    Priority = (HintPriority)(i % 5), // 混合不同优先级，触发动态提示的降序 Sort 逻辑
-                    Strategy = DynamicHintStrategy.StayInPosition // 如果找不到位置也强制生成，增加后续字符串拼接的负担
+                    Priority = (HintPriority)(i % 5), // Trigger descending Sort logic
+                    Strategy = DynamicHintStrategy.StayInPosition // Increase string concatenation burden
                 };
                 collection.AddHint($"Assembly_Dynamic_{i % 3}", dynamicHint);
             }
 
             string resultMessage = parser.ParseToMessage(collection);
 
-            // 确保结果不会被编译器优化掉 (如果框架需要断言，可以在这里对 resultMessage.Length 进行粗略断言)
             if (string.IsNullOrEmpty(resultMessage))
             {
                 throw new Exception("Parsed message should not be empty in this complex scenario.");
