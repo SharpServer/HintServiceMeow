@@ -172,7 +172,7 @@
 
             for (indexPTH = 0; indexPTH < colliders.Count; indexPTH++)
             {
-                if (targetArea.HasIntersection(colliders[0]))
+                if (targetArea.HasIntersection(colliders[indexPTH]))
                 {
                     targetAreaAvailable = false;
                     break;
