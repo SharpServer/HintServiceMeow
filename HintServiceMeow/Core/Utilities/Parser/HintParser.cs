@@ -361,7 +361,7 @@
 
             // Skip if no tag
             bool needsModification = false;
-            for (int indexRIT = 0; indexRIT < raw.Length; indexRIT++)
+            for (indexRIT = 0; indexRIT < raw.Length; indexRIT++)
             {
                 char c = raw[indexRIT];
                 if (c == '{' || c == '}')
