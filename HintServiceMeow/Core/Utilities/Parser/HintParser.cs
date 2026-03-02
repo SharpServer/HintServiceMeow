@@ -91,7 +91,8 @@
                 }
 
                 // Convert Dynamic Hint
-                dynamicHints.Sort((a, b) => b.Priority - a.Priority);
+                Comparison<DynamicHint> dynamicHintPriorityComparer = (a, b) => b.Priority - a.Priority;
+                dynamicHints.Sort(dynamicHintPriorityComparer);
 
                 for (indexPTM2 = 0; indexPTM2 < dynamicHints.Count; indexPTM2++)
                 {
