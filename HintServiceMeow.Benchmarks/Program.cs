@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Environments;
@@ -166,6 +167,28 @@ namespace MyProject.Benchmarks
             if (string.IsNullOrEmpty(resultMessage))
             {
                 throw new Exception("Parsed message should not be empty in this complex scenario.");
+            }
+        }
+
+        [Benchmark()]
+        public void ParseRichText()
+        {
+            List<string> strs = new List<string>();
+            RichTextParser parser = new RichTextParser();
+
+            for (int i = 0; i < RegularHints; i++)
+            {
+                strs.Add($"<color=red>Static Block {i}</color> <pos={i}>Illegal</pos> <voffset=99>Tag</voffset>");
+            }
+
+            for (int i = 0; i < DynamicHints; i++)
+            {
+                strs.Add($"<size=24>Dynamic Competitor {i}</size> {{IllegalBraces}} <line-height=0>");
+            }
+
+            foreach (string str in strs)
+            {
+                parser.ParseText(str, 20, HintAlignment.Center);
             }
         }
     }
