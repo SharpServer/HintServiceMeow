@@ -9,7 +9,7 @@ using HintServiceMeow.Core.Utilities.Tools;
 using HintServiceMeow.Tests.Helpers;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace HintServiceMeow.Tests.HintContent
+namespace HintServiceMeow.Tests.Core.Models.HintContent
 {
     [TestClass]
     public class AutoContentTests
@@ -574,7 +574,7 @@ namespace HintServiceMeow.Tests.HintContent
                 }
             });
 
-            var readTasks = Enumerable.Range(0, 10).Select(_ => Task.Run(() =>
+            var readTasks = Enumerable.Range(0, 49).Select(_ => Task.Run(() =>
             {
                 while (!cts.Token.IsCancellationRequested)
                 {

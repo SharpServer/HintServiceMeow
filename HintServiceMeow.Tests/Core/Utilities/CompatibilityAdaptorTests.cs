@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using System.Runtime.Serialization;
 using System.Threading;
 using HintServiceMeow.Core.Models.Hints;
@@ -7,6 +6,7 @@ using HintServiceMeow.Core.Utilities;
 using HintServiceMeow.Core.Utilities.Parser;
 using HintServiceMeow.Plugin;
 using HintServiceMeow.Tests.Core.Utilities.TestDoubles;
+using HintServiceMeow.Tests.Helpers;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace HintServiceMeow.Tests.Core.Utilities;
@@ -18,46 +18,58 @@ public class CompatibilityAdaptorTests
     public void Setup() => EnsurePluginConfig();
 
     [TestMethod]
-    public void ShowHint_ShouldThrow_When_ArgIsNull()
+    public void ShowHint_WhenArgIsNull_Throws()
     {
+        // Arrange
         CompatibilityAdaptor adaptor = CreateAdaptor(out _);
+
+        // Act & Assert
         Assert.ThrowsExactly<ArgumentNullException>(() => adaptor.ShowHint(null!));
     }
 
     [TestMethod]
-    public void ShowHint_ShouldClearGroup_When_DurationIsNonPositive()
+    public void ShowHint_WhenDurationIsNonPositive_ClearsGroup()
     {
+        // Arrange
         CompatibilityAdaptor adaptor = CreateAdaptor(out PlayerDisplay display);
         display.InternalAddHint("CompatibilityAdaptor-asm", new Hint { Text = "old" });
 
+        // Act
         adaptor.ShowHint(new("asm", "any", 0));
 
+        // Assert
         Assert.AreEqual(0, display.InternalGetHints("CompatibilityAdaptor-asm").Count);
     }
 
     [TestMethod]
-    public void ShowHint_ShouldIgnoreDisabledAssembly()
+    public void ShowHint_WhenAssemblyIsDisabled_IgnoresHint()
     {
+        // Arrange
         PluginConfig.Instance.DisabledCompatAdapter.Clear();
         PluginConfig.Instance.DisabledCompatAdapter.Add("blocked");
-
         CompatibilityAdaptor adaptor = CreateAdaptor(out PlayerDisplay display);
-        adaptor.ShowHint(new("blocked", "content", 1));
 
+        // Act
+        adaptor.ShowHint(new("blocked", "content", 1));
         Thread.Sleep(50);
+
+        // Assert
         Assert.AreEqual(0, display.InternalGetHints("CompatibilityAdaptor-blocked").Count);
     }
 
     [TestMethod]
-    public void Destruct_ShouldBeIdempotent_AndPreventFurtherUpdates()
+    public void Destruct_WhenCalledMultipleTimes_IsIdempotentAndPreventsFurtherUpdates()
     {
+        // Arrange
         CompatibilityAdaptor adaptor = CreateAdaptor(out PlayerDisplay display);
-        ((HintServiceMeow.Core.Interface.IDestructible)adaptor).Destruct();
-        ((HintServiceMeow.Core.Interface.IDestructible)adaptor).Destruct();
 
+        // Act
+        ((HintServiceMeow.Core.Interface.IDestructible)adaptor).Destruct();
+        ((HintServiceMeow.Core.Interface.IDestructible)adaptor).Destruct();
         adaptor.ShowHint(new("asm", "later", 1f));
         Thread.Sleep(50);
 
+        // Assert
         Assert.AreEqual(0, display.InternalGetHints("CompatibilityAdaptor-asm").Count);
     }
 
@@ -77,13 +89,11 @@ public class CompatibilityAdaptorTests
 
     private static void EnsurePluginConfig()
     {
-        FieldInfo instanceField = typeof(Plugin.Plugin).GetField("<Instance>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic)!;
-        if (instanceField.GetValue(null) is not null)
+        if (ReflectionHelper.GetStaticFieldValue<object>(typeof(Plugin.Plugin), "<Instance>k__BackingField") is not null)
             return;
 
         Plugin.Plugin fakePlugin = (Plugin.Plugin)FormatterServices.GetUninitializedObject(typeof(Plugin.Plugin));
-        typeof(Plugin.Plugin).GetField("<Config>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(fakePlugin, new PluginConfig { DisabledCompatAdapter = [] });
-        instanceField.SetValue(null, fakePlugin);
+        ReflectionHelper.SetFieldValue(fakePlugin, "<Config>k__BackingField", new PluginConfig { DisabledCompatAdapter = [] });
+        ReflectionHelper.SetStaticFieldValue(typeof(Plugin.Plugin), "<Instance>k__BackingField", fakePlugin);
     }
 }

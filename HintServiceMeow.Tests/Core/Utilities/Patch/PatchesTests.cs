@@ -1,6 +1,6 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace HintServiceMeow.Tests.Patch
+namespace HintServiceMeow.Tests.Core.Utilities.Patch
 {
     /// <summary>
     /// Tests for HintServiceMeow.Core.Utilities.Patch.Patches (internal static class).

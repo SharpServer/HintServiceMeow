@@ -56,6 +56,16 @@ namespace HintServiceMeow.Tests.Helpers
                 throw new ArgumentException($"Static property '{propertyName}' not found on {type.Name}");
             prop.SetValue(null, value);
         }
+
+        public static T GetPropertyValue<T>(object obj, string propertyName)
+        {
+            var prop = obj.GetType().GetProperty(
+                propertyName,
+                BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+            if (prop == null)
+                throw new ArgumentException($"Property '{propertyName}' not found on {obj.GetType().Name}");
+            return (T)prop.GetValue(obj)!;
+        }
     }
 
     /// <summary>
