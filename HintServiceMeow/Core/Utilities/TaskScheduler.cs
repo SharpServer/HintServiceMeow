@@ -8,7 +8,7 @@
 
     internal class TaskScheduler : Interface.ITaskScheduler, Interface.IDestructible
     {
-        private readonly ReaderWriterLockSlim actionTimeLock = new();
+        private readonly ReaderWriterLockSlim schedulerLock = new();
 
         private readonly PeriodicRunner runner;
 
@@ -23,7 +23,7 @@
         {
             interval = TimeSpan.FromSeconds(0);
             task = () => true; // Default empty action
-            startTimeStamp = DateTime.MinValue; // Default zero interval
+            startTimeStamp = DateTime.Now;
 
             runner = PeriodicRunner.Start(PeriodicRunnerMethod, TimeSpan.FromSeconds(1.0 / tickRate));
         }
@@ -40,7 +40,7 @@
         {
             get
             {
-                actionTimeLock.EnterWriteLock();
+                schedulerLock.EnterWriteLock();
                 try
                 {
                     if (IsPaused)
@@ -51,13 +51,13 @@
                 }
                 finally
                 {
-                    actionTimeLock.ExitWriteLock();
+                    schedulerLock.ExitWriteLock();
                 }
             }
 
             private set
             {
-                actionTimeLock.EnterWriteLock();
+                schedulerLock.EnterWriteLock();
                 try
                 {
                     elapsed = value; // Set elapsed time
@@ -65,7 +65,7 @@
                 }
                 finally
                 {
-                    actionTimeLock.ExitWriteLock();
+                    schedulerLock.ExitWriteLock();
                 }
             }
         }
@@ -74,20 +74,20 @@
         {
             get
             {
-                actionTimeLock.EnterReadLock();
+                schedulerLock.EnterReadLock();
                 try
                 {
                     return interval;
                 }
                 finally
                 {
-                    actionTimeLock.ExitReadLock();
+                    schedulerLock.ExitReadLock();
                 }
             }
 
             set
             {
-                actionTimeLock.EnterWriteLock();
+                schedulerLock.EnterWriteLock();
                 try
                 {
                     if (value <= TimeSpan.Zero)
@@ -97,7 +97,7 @@
                 }
                 finally
                 {
-                    actionTimeLock.ExitWriteLock();
+                    schedulerLock.ExitWriteLock();
                 }
             }
         }
@@ -108,27 +108,27 @@
         {
             get
             {
-                actionTimeLock.EnterReadLock();
+                schedulerLock.EnterReadLock();
                 try
                 {
                     return scheduledActionTime;
                 }
                 finally
                 {
-                    actionTimeLock.ExitReadLock();
+                    schedulerLock.ExitReadLock();
                 }
             }
 
             set
             {
-                actionTimeLock.EnterWriteLock();
+                schedulerLock.EnterWriteLock();
                 try
                 {
                     scheduledActionTime = value;
                 }
                 finally
                 {
-                    actionTimeLock.ExitWriteLock();
+                    schedulerLock.ExitWriteLock();
                 }
             }
         }
@@ -139,6 +139,7 @@
         void Interface.IDestructible.Destruct()
         {
             runner.Dispose();
+            schedulerLock.Dispose();
         }
 
         /// <summary>
@@ -149,11 +150,12 @@
         /// <exception cref="ArgumentNullException">newAction is null.</exception>
         public void Start(TimeSpan newInterval, Action newAction)
         {
-            actionTimeLock.EnterWriteLock();
+            schedulerLock.EnterWriteLock();
             try
             {
                 if (newInterval <= TimeSpan.Zero)
                     newInterval = TimeSpan.Zero;
+
                 interval = newInterval;
 
                 if (newAction is null)
@@ -164,15 +166,18 @@
                     newAction();
                     return true; // Return true to indicate success
                 };
+
+                // Reset Elapsed
+                elapsed = TimeSpan.Zero;
+                startTimeStamp = DateTime.Now;
+
+                // Reset scheduled action time
+                scheduledActionTime = DateTime.MaxValue;
             }
             finally
             {
-                actionTimeLock.ExitWriteLock();
+                schedulerLock.ExitWriteLock();
             }
-
-            // Reset the timer
-            Elapsed = TimeSpan.Zero;
-            ScheduledActionTime = DateTime.MaxValue; // Reset scheduled action time
         }
 
         /// <summary>
@@ -183,22 +188,27 @@
         /// <exception cref="ArgumentNullException">newAction is null.</exception>
         public void Start(TimeSpan newInterval, Func<bool> newAction)
         {
-            actionTimeLock.EnterWriteLock();
+            schedulerLock.EnterWriteLock();
             try
             {
                 if (newInterval <= TimeSpan.Zero)
                     newInterval = TimeSpan.Zero;
+
+                // Set new interval and action
                 interval = newInterval;
                 task = newAction ?? throw new ArgumentNullException(nameof(newAction), "Action cannot be null.");
+
+                // Reset Elapsed
+                elapsed = TimeSpan.Zero;
+                startTimeStamp = DateTime.Now;
+
+                // Reset scheduled action time
+                scheduledActionTime = DateTime.MaxValue;
             }
             finally
             {
-                actionTimeLock.ExitWriteLock();
+                schedulerLock.ExitWriteLock();
             }
-
-            // Reset the timer
-            Elapsed = TimeSpan.Zero;
-            ScheduledActionTime = DateTime.MaxValue; // Reset scheduled action time
         }
 
         /// <summary>
@@ -208,7 +218,7 @@
         /// <param name="delayType">What to do if there's already a scheduled action.</param>
         public void Invoke(float delay = -1f, DelayType delayType = DelayType.Override)
         {
-            actionTimeLock.EnterWriteLock();
+            schedulerLock.EnterWriteLock();
 
             try
             {
@@ -239,7 +249,7 @@
             }
             finally
             {
-                actionTimeLock.ExitWriteLock();
+                schedulerLock.ExitWriteLock();
             }
         }
 
@@ -248,26 +258,30 @@
         /// </summary>
         public void Stop()
         {
-            actionTimeLock.EnterWriteLock();
+            schedulerLock.EnterWriteLock();
             try
             {
                 // Reset the action and interval
                 task = () => true; // Default empty action
                 interval = TimeSpan.FromSeconds(0);
                 scheduledActionTime = DateTime.MaxValue; // Reset scheduled action time
+
+                // Reset Elapsed
+                elapsed = TimeSpan.Zero;
+                startTimeStamp = DateTime.Now;
+
+                // Reset scheduled action time
+                scheduledActionTime = DateTime.MaxValue;
             }
             finally
             {
-                actionTimeLock.ExitWriteLock();
+                schedulerLock.ExitWriteLock();
             }
-
-            Elapsed = TimeSpan.Zero; // Reset elapsed time
-            ScheduledActionTime = DateTime.MaxValue; // Reset scheduled action time
         }
 
         public void Pause()
         {
-            actionTimeLock.EnterWriteLock();
+            schedulerLock.EnterWriteLock();
             try
             {
                 if (paused)
@@ -279,13 +293,13 @@
             }
             finally
             {
-                actionTimeLock.ExitWriteLock();
+                schedulerLock.ExitWriteLock();
             }
         }
 
         public void Resume()
         {
-            actionTimeLock.EnterWriteLock();
+            schedulerLock.EnterWriteLock();
             try
             {
                 if (!paused)
@@ -296,7 +310,7 @@
             }
             finally
             {
-                actionTimeLock.ExitWriteLock();
+                schedulerLock.ExitWriteLock();
             }
         }
 
@@ -315,8 +329,20 @@
                 else
                 {
                     // Reset Timer
-                    Elapsed = TimeSpan.Zero; // Reset Elapsed Time
-                    ScheduledActionTime = DateTime.MaxValue; // Reset scheduled action time
+                    schedulerLock.EnterWriteLock();
+                    try
+                    {
+                        // Reset Elapsed
+                        elapsed = TimeSpan.Zero;
+                        startTimeStamp = DateTime.Now;
+
+                        // Reset timer
+                        scheduledActionTime = DateTime.MaxValue;
+                    }
+                    finally
+                    {
+                        schedulerLock.ExitWriteLock();
+                    }
                 }
             }
             catch (Exception ex)
@@ -326,8 +352,20 @@
                 if (!InvokeUntilSuccess)
                 {
                     // Reset Timer
-                    Elapsed = TimeSpan.Zero; // Reset Elapsed Time
-                    ScheduledActionTime = DateTime.MaxValue; // Reset scheduled action time
+                    schedulerLock.EnterWriteLock();
+                    try
+                    {
+                        // Reset Elapsed
+                        elapsed = TimeSpan.Zero;
+                        startTimeStamp = DateTime.Now;
+
+                        // Reset timer
+                        scheduledActionTime = DateTime.MaxValue;
+                    }
+                    finally
+                    {
+                        schedulerLock.ExitWriteLock();
+                    }
                 }
             }
         }
