@@ -12,7 +12,7 @@
 
         private readonly PeriodicRunner runner;
 
-        private Action action;
+        private Func<bool> task;
         private DateTime scheduledActionTime; // Indicate when the timer will begin trying invoking the action
         private TimeSpan interval; // Minimum time between two actions
         private DateTime startTimeStamp; // Used to calculate elapsed time since last action, = DateTime.MinValue if there's no last action.
@@ -22,11 +22,13 @@
         public TaskScheduler(int tickRate = 30)
         {
             interval = TimeSpan.FromSeconds(0);
-            action = () => { }; // Default empty action
+            task = () => true; // Default empty action
             startTimeStamp = DateTime.MinValue; // Default zero interval
 
             runner = PeriodicRunner.Start(PeriodicRunnerMethod, TimeSpan.FromSeconds(1.0 / tickRate));
         }
+
+        public bool InvokeUntilSuccess { get; set; }
 
         public bool IsPaused => paused;
 
@@ -60,6 +62,38 @@
                 {
                     elapsed = value; // Set elapsed time
                     startTimeStamp = DateTime.Now; // Reset time stamp
+                }
+                finally
+                {
+                    actionTimeLock.ExitWriteLock();
+                }
+            }
+        }
+
+        public TimeSpan MinInterval
+        {
+            get
+            {
+                actionTimeLock.EnterReadLock();
+                try
+                {
+                    return interval;
+                }
+                finally
+                {
+                    actionTimeLock.ExitReadLock();
+                }
+            }
+
+            set
+            {
+                actionTimeLock.EnterWriteLock();
+                try
+                {
+                    if (value <= TimeSpan.Zero)
+                        interval = TimeSpan.Zero;
+                    else
+                        interval = value;
                 }
                 finally
                 {
@@ -121,7 +155,41 @@
                 if (newInterval <= TimeSpan.Zero)
                     newInterval = TimeSpan.Zero;
                 interval = newInterval;
-                action = newAction ?? throw new ArgumentNullException(nameof(newAction), "Action cannot be null.");
+
+                if (newAction is null)
+                    throw new ArgumentNullException(nameof(newAction), "Action cannot be null.");
+
+                task = () =>
+                {
+                    newAction();
+                    return true; // Return true to indicate success
+                };
+            }
+            finally
+            {
+                actionTimeLock.ExitWriteLock();
+            }
+
+            // Reset the timer
+            Elapsed = TimeSpan.Zero;
+            ScheduledActionTime = DateTime.MaxValue; // Reset scheduled action time
+        }
+
+        /// <summary>
+        /// Start the scheduler with a specified interval and action.
+        /// </summary>
+        /// <param name="newInterval">Minimum interval between each action.</param>
+        /// <param name="newAction">The action to invoke.</param>
+        /// <exception cref="ArgumentNullException">newAction is null.</exception>
+        public void Start(TimeSpan newInterval, Func<bool> newAction)
+        {
+            actionTimeLock.EnterWriteLock();
+            try
+            {
+                if (newInterval <= TimeSpan.Zero)
+                    newInterval = TimeSpan.Zero;
+                interval = newInterval;
+                task = newAction ?? throw new ArgumentNullException(nameof(newAction), "Action cannot be null.");
             }
             finally
             {
@@ -184,7 +252,7 @@
             try
             {
                 // Reset the action and interval
-                action = () => { }; // Default empty action
+                task = () => true; // Default empty action
                 interval = TimeSpan.FromSeconds(0);
                 scheduledActionTime = DateTime.MaxValue; // Reset scheduled action time
             }
@@ -239,16 +307,28 @@
         {
             try
             {
-                // Reset timer
-                Elapsed = TimeSpan.Zero; // Reset Elapsed Time
-                ScheduledActionTime = DateTime.MaxValue; // Reset scheduled action time
-
                 // start action
-                action.Invoke();
+                if (!task.Invoke() && InvokeUntilSuccess)
+                {
+                    return;
+                }
+                else
+                {
+                    // Reset Timer
+                    Elapsed = TimeSpan.Zero; // Reset Elapsed Time
+                    ScheduledActionTime = DateTime.MaxValue; // Reset scheduled action time
+                }
             }
             catch (Exception ex)
             {
                 Logger.Instance.Error(ex);
+
+                if (!InvokeUntilSuccess)
+                {
+                    // Reset Timer
+                    Elapsed = TimeSpan.Zero; // Reset Elapsed Time
+                    ScheduledActionTime = DateTime.MaxValue; // Reset scheduled action time
+                }
             }
         }
 
