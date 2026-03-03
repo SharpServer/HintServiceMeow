@@ -7,7 +7,7 @@ using HintServiceMeow.Core.Utilities.Pools;
 using HintServiceMeow.Tests.Helpers;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace HintServiceMeow.Tests.Pools
+namespace HintServiceMeow.Tests.Core.Utilities.Pools
 {
     [TestClass]
     public class StringBuilderPoolTests

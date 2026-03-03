@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using HintServiceMeow.Core.Models;
 using HintServiceMeow.Core.Models.Hints;
@@ -14,82 +15,104 @@ namespace HintServiceMeow.Tests.Core.Models;
 public class HintCollectionTests
 {
     [TestMethod]
-    public void AddHint_ShouldRaiseAddEventAndUpdateState_When_NewHintAdded()
+    public void AddHint_WhenNewHintAdded_RaisesAddEventAndUpdatesState()
     {
+        // Arrange
         HintCollection collection = new();
         Hint hint = new() { Id = "A" };
         NotifyCollectionChangedEventArgs? evt = null;
         collection.CollectionChanged += (_, e) => evt = e;
 
+        // Act
         collection.AddHint("asm", hint);
 
+        // Assert
         Assert.IsNotNull(evt);
         Assert.AreEqual(NotifyCollectionChangedAction.Add, evt.Action);
         CollectionAssert.Contains(collection.GetHints("asm").ToList(), hint);
     }
 
     [TestMethod]
-    public void RemoveHint_ShouldNotRaiseEvent_When_HintDoesNotExist()
+    public void RemoveHint_WhenHintDoesNotExist_DoesNotRaiseEvent()
     {
+        // Arrange
         HintCollection collection = new();
         int eventCount = 0;
         collection.CollectionChanged += (_, _) => eventCount++;
 
+        // Act
         bool removed = collection.RemoveHint("asm", new Hint());
 
+        // Assert
         Assert.IsFalse(removed);
         Assert.AreEqual(0, eventCount);
     }
 
     [TestMethod]
-    public void AllHints_ShouldUseSnapshotSemantics_AcrossMutations()
+    public void AllHints_WhenMutated_UsesSnapshotSemantics()
     {
+        // Arrange
         HintCollection collection = new();
         Hint first = new() { Id = "1" };
         Hint second = new() { Id = "2" };
-
         collection.AddHint("asm", first);
+
+        // Act
         IReadOnlyList<AbstractHint> snapshot = collection.AllHints;
         collection.AddHint("asm", second);
 
+        // Assert
         Assert.AreEqual(1, snapshot.Count);
         Assert.AreEqual(2, collection.AllHints.Count);
     }
 
     [TestMethod]
-    public void RemoveHintByPredicate_ShouldCleanupEmptyGroup_When_AllRemoved()
+    public void RemoveHintByPredicate_WhenAllRemoved_CleansUpEmptyGroup()
     {
+        // Arrange
         HintCollection collection = new();
         collection.AddHint("asm", new Hint { Id = "x" });
 
+        // Act
         List<AbstractHint> removed = collection.RemoveHint("asm", _ => true);
 
+        // Assert
         Assert.AreEqual(1, removed.Count);
         Assert.AreEqual(0, collection.GetHints("asm").Count);
         Assert.AreEqual(0, collection.AllGroups.Count);
     }
 
     [TestMethod]
-    public void ConcurrentAddAndRead_ShouldStayConsistent()
+    [Timeout(10000)]
+    public async Task ConcurrentAddAndRead_WhenConcurrentAccess_StaysConsistent()
     {
+        // Arrange
         HintCollection collection = new();
         ConcurrentBag<Exception> errors = [];
+        int addCount = 0;
 
-        Parallel.For(0, 2000, i =>
+        // Act
+        var tasks = Enumerable.Range(0, 50).Select(i => Task.Run(() =>
         {
             try
             {
-                collection.AddHint(i % 2 == 0 ? "a" : "b", new Hint { Id = i.ToString() });
-                _ = collection.AllHints.Count;
-                _ = collection.AllGroups.Count;
+                for (int j = 0; j < 40; j++)
+                {
+                    int idx = i * 40 + j;
+                    collection.AddHint(idx % 2 == 0 ? "a" : "b", new Hint { Id = idx.ToString() });
+                    _ = collection.AllHints.Count;
+                    _ = collection.AllGroups.Count;
+                    Interlocked.Increment(ref addCount);
+                }
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
                 errors.Add(ex);
             }
-        });
+        }));
+        await Task.WhenAll(tasks);
 
+        // Assert
         Assert.AreEqual(0, errors.Count);
         Assert.AreEqual(2000, collection.AllHints.Count);
     }

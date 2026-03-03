@@ -11,10 +11,12 @@ namespace HintServiceMeow.Tests.Core.Models;
 public class HintTests
 {
     [TestMethod]
-    public void Constructor_ShouldHaveExpectedDefaults()
+    public void Constructor_WhenDefault_HasExpectedDefaults()
     {
+        // Arrange & Act
         Hint hint = new();
 
+        // Assert
         Assert.AreEqual(0f, hint.XCoordinate);
         Assert.AreEqual(700f, hint.YCoordinate);
         Assert.AreEqual(HintAlignment.Center, hint.Alignment);
@@ -23,8 +25,9 @@ public class HintTests
     }
 
     [TestMethod]
-    public void CopyConstructor_ShouldCloneMutableState_ButKeepDifferentGuid()
+    public void CopyConstructor_WhenSourceProvided_ClonesMutableStateButUsesNewGuid()
     {
+        // Arrange
         Hint source = new()
         {
             Id = "id",
@@ -35,8 +38,10 @@ public class HintTests
             Text = "text"
         };
 
+        // Act
         Hint copy = new(source);
 
+        // Assert
         Assert.AreNotEqual(source.Guid, copy.Guid);
         Assert.AreEqual(source.XCoordinate, copy.XCoordinate);
         Assert.AreEqual(source.YCoordinate, copy.YCoordinate);
@@ -45,38 +50,49 @@ public class HintTests
     }
 
     [TestMethod]
-    public void PropertySetters_ShouldNotifyAndInvokeAnalyser_When_ValueChanges()
+    public void PropertySetters_WhenValueChanges_NotifiesAndInvokesAnalyser()
     {
+        // Arrange
         Hint hint = new();
         FixedUpdateAnalyser analyser = new();
         hint.UpdateAnalyser = analyser;
         List<string> props = [];
         hint.PropertyChanged += (_, e) => props.Add(e.PropertyName!);
 
+        // Act
         hint.XCoordinate = 10;
         hint.YCoordinate = 20;
 
+        // Assert
         CollectionAssert.Contains(props, "XCoordinate");
         CollectionAssert.Contains(props, "YCoordinate");
         Assert.AreEqual(2, analyser.OnUpdateCallCount);
     }
 
     [TestMethod]
-    public void TextAndAutoText_ShouldSwitchContentImplementations()
+    public void TextAndAutoText_WhenSet_SwitchesContentImplementation()
     {
+        // Arrange
         Hint hint = new();
+
+        // Act
         hint.Text = "manual";
+
+        // Assert
         Assert.IsInstanceOfType<StringContent>(hint.Content);
 
+        // Act
         hint.AutoText = _ => "auto";
 
+        // Assert
         Assert.IsInstanceOfType<AutoContent>(hint.Content);
         Assert.IsNotNull(hint.AutoText);
     }
 
     [TestMethod]
-    public void ContentReplacement_ShouldUnsubscribeOldAndSubscribeNew()
+    public void ContentReplacement_WhenNewContentSet_UnsubscribesOldAndSubscribesNew()
     {
+        // Arrange
         Hint hint = new();
         StringContent oldContent = new("a");
         StringContent newContent = new("b");
@@ -89,10 +105,12 @@ public class HintTests
                 changed++;
         };
 
+        // Act
         hint.Content = newContent;
         oldContent.Text = "x";
         newContent.Text = "y";
 
+        // Assert
         Assert.AreEqual(2, changed); // set + new content update only
     }
 }
