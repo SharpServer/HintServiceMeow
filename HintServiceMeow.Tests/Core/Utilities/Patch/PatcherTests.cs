@@ -2,7 +2,7 @@ using HintServiceMeow.Core.Utilities.Patch;
 using HintServiceMeow.Tests.Helpers;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace HintServiceMeow.Tests.Patch
+namespace HintServiceMeow.Tests.Core.Utilities.Patch
 {
     [TestClass]
     public class PatcherTests

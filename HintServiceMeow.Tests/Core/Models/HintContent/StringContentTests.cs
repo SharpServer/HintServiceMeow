@@ -5,7 +5,7 @@ using HintServiceMeow.Core.Utilities.Tools;
 using HintServiceMeow.Tests.Helpers;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace HintServiceMeow.Tests.HintContent
+namespace HintServiceMeow.Tests.Core.Models.HintContent
 {
     [TestClass]
     public class StringContentTests
