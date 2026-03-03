@@ -27,9 +27,13 @@ namespace HintServiceMeow.Tests.Core.Utilities.TestDoubles
     /// </summary>
     internal sealed class TestTaskScheduler : ITaskScheduler, IDestructible
     {
-        private Action callback = null!;
+        private Func<bool> callback = null!;
+
+        public bool InvokeUntilSuccess { get; set; }
 
         public TimeSpan Elapsed { get; set; } = TimeSpan.Zero;
+
+        public TimeSpan MinInterval { get; set; } = TimeSpan.Zero;
 
         public bool IsReadyForNextAction { get; set; }
 
@@ -39,9 +43,26 @@ namespace HintServiceMeow.Tests.Core.Utilities.TestDoubles
 
         public List<(float Delay, DelayType DelayType)> Invokes { get; } = [];
 
+        public void Start(TimeSpan interval)
+        {
+            Start(interval, () => { });
+        }
+
         public void Start(TimeSpan interval, Action callback)
         {
             // Keep callback reference so tests can trigger it explicitly if needed.
+            if (callback is null)
+                throw new ArgumentNullException(nameof(callback));
+
+            this.callback = () =>
+            {
+                callback();
+                return true;
+            };
+        }
+
+        public void Start(TimeSpan interval, Func<bool> callback)
+        {
             this.callback = callback ?? throw new ArgumentNullException(nameof(callback));
         }
 
