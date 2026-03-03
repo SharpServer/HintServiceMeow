@@ -493,7 +493,6 @@
             isDestructed = true; // Mark as destroyed to prevent further actions
 
             coroutine.Kill(); // Stop coroutine
-            UpdateAvailable = null; // Clear event
 
             // Clear collection's reference to this pd
             hintCollection.CollectionChanged -= OnCollectionChanged;
@@ -504,6 +503,8 @@
                 hint.PropertyChanged -= OnHintUpdate;
                 UpdateAvailable -= hint.TryUpdateHint;
             }
+
+            UpdateAvailable = null; // Clear event
 
             // Clear pd's reference to hints
             hintCollection.ClearHints(null);
