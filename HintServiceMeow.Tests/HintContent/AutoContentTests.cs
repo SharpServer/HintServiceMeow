@@ -574,7 +574,7 @@ namespace HintServiceMeow.Tests.HintContent
                 }
             });
 
-            var readTasks = Enumerable.Range(0, 10).Select(_ => Task.Run(() =>
+            var readTasks = Enumerable.Range(0, 49).Select(_ => Task.Run(() =>
             {
                 while (!cts.Token.IsCancellationRequested)
                 {

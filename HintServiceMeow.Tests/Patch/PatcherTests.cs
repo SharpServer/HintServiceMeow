@@ -1,5 +1,5 @@
-using System.Reflection;
 using HintServiceMeow.Core.Utilities.Patch;
+using HintServiceMeow.Tests.Helpers;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace HintServiceMeow.Tests.Patch
@@ -11,17 +11,14 @@ namespace HintServiceMeow.Tests.Patch
         public void Setup()
         {
             // Reset Harmony property to null via reflection (private set)
-            var backingField = typeof(Patcher).GetField(
-                "<Harmony>k__BackingField",
-                BindingFlags.Static | BindingFlags.NonPublic);
-            backingField?.SetValue(null, null);
+            ReflectionHelper.SetStaticFieldValue(typeof(Patcher), "<Harmony>k__BackingField", null);
         }
 
         #region Patch Installation
 
         [TestMethod]
         [Ignore("Requires game assemblies (Hints.HintDisplay, LabApi.Features.Wrappers.Player)")]
-        public void Patch_SetsHarmonyInstanceNotNull()
+        public void Patch_WhenCalled_SetsHarmonyInstanceNotNull()
         {
             // Arrange & Act
             // Patcher.Patch();
@@ -32,7 +29,7 @@ namespace HintServiceMeow.Tests.Patch
 
         [TestMethod]
         [Ignore("Requires game assemblies (Hints.HintDisplay, LabApi.Features.Wrappers.Player)")]
-        public void Patch_HarmonyIdContainsGuid_UniquePerCall()
+        public void Patch_WhenCalledTwice_HarmonyIdIsUniquePerCall()
         {
             // Arrange & Act
             // Patcher.Patch();
@@ -48,7 +45,7 @@ namespace HintServiceMeow.Tests.Patch
 
         [TestMethod]
         [Ignore("Requires game assemblies (Hints.HintDisplay, LabApi.Features.Wrappers.Player)")]
-        public void Patch_AllTargetMethodsArePatched()
+        public void Patch_WhenApplied_AllTargetMethodsArePatched()
         {
             // Arrange & Act
             // Patcher.Patch();
@@ -62,7 +59,7 @@ namespace HintServiceMeow.Tests.Patch
 
         [TestMethod]
         [Ignore("Requires game assemblies (Hints.HintDisplay, LabApi.Features.Wrappers.Player)")]
-        public void Patch_UnpatchesExistingPatchesFirst()
+        public void Patch_WhenCalledAgain_UnpatchesExistingPatchesFirst()
         {
             // Arrange & Act
             // Patcher.Patch(); // First patch
@@ -113,7 +110,7 @@ namespace HintServiceMeow.Tests.Patch
 
         [TestMethod]
         [Ignore("Requires game assemblies (Hints.HintDisplay, LabApi.Features.Wrappers.Player)")]
-        public void Unpatch_DoesNotAffectOtherHarmonyIds()
+        public void Unpatch_WhenOtherHarmonyIdsExist_DoesNotAffectOtherIds()
         {
             // Arrange
             // var otherHarmony = new Harmony("other-id");
@@ -132,7 +129,7 @@ namespace HintServiceMeow.Tests.Patch
 
         [TestMethod]
         [Ignore("Requires game assemblies (Hints.HintDisplay, LabApi.Features.Wrappers.Player)")]
-        public void Patch_Unpatch_Patch_IsReentrant()
+        public void Patch_WhenCalledAfterUnpatch_IsReentrant()
         {
             // Arrange & Act
             // Patcher.Patch();
@@ -145,7 +142,7 @@ namespace HintServiceMeow.Tests.Patch
 
         [TestMethod]
         [Ignore("Requires game assemblies (Hints.HintDisplay, LabApi.Features.Wrappers.Player)")]
-        public void MultiplePatch_WithoutUnpatch_CreatesNewHarmonyEachTime()
+        public void Patch_WhenCalledMultipleTimesWithoutUnpatch_CreatesNewHarmonyEachTime()
         {
             // Arrange & Act
             // Patcher.Patch();
@@ -159,7 +156,7 @@ namespace HintServiceMeow.Tests.Patch
 
         [TestMethod]
         [Ignore("Requires game assemblies (Hints.HintDisplay, LabApi.Features.Wrappers.Player)")]
-        public void Unpatch_HarmonyPropertyRetainsReference()
+        public void Unpatch_WhenCalled_HarmonyPropertyRetainsReference()
         {
             // Arrange
             // Patcher.Patch();

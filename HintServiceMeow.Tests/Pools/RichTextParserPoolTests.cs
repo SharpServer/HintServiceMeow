@@ -2,7 +2,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using HintServiceMeow.Core.Enum;
@@ -20,29 +19,9 @@ namespace HintServiceMeow.Tests.Pools
         public void Setup()
         {
             // Drain the singleton pool to ensure test isolation
-            var pool = RichTextParserPool.Instance;
-            var queue = ReflectionHelper.GetFieldValue<ConcurrentQueue<RichTextParser>>(pool, "richTextParserQueue");
+            RichTextParserPool pool = RichTextParserPool.Instance;
+            ConcurrentQueue<RichTextParser> queue = ReflectionHelper.GetFieldValue<ConcurrentQueue<RichTextParser>>(pool, "richTextParserQueue");
             while (queue.TryDequeue(out _)) { }
-        }
-
-        private static T GetParserField<T>(RichTextParser parser, string fieldName)
-        {
-            var field = typeof(RichTextParser).GetField(
-                fieldName,
-                BindingFlags.Instance | BindingFlags.NonPublic);
-            if (field == null)
-                throw new ArgumentException($"Field '{fieldName}' not found on RichTextParser");
-            return (T)field.GetValue(parser);
-        }
-
-        private static void SetParserField(RichTextParser parser, string fieldName, object value)
-        {
-            var field = typeof(RichTextParser).GetField(
-                fieldName,
-                BindingFlags.Instance | BindingFlags.NonPublic);
-            if (field == null)
-                throw new ArgumentException($"Field '{fieldName}' not found on RichTextParser");
-            field.SetValue(parser, value);
         }
 
         #region Basic Rent/Return
@@ -51,10 +30,10 @@ namespace HintServiceMeow.Tests.Pools
         public void Rent_WhenPoolEmpty_ReturnsNewParser()
         {
             // Arrange
-            var pool = RichTextParserPool.Instance;
+            RichTextParserPool pool = RichTextParserPool.Instance;
 
             // Act
-            var parser = pool.Rent();
+            RichTextParser parser = pool.Rent();
 
             // Assert
             Assert.IsNotNull(parser);
@@ -64,12 +43,12 @@ namespace HintServiceMeow.Tests.Pools
         public void Return_ThenRent_ReusesSameInstance()
         {
             // Arrange
-            var pool = RichTextParserPool.Instance;
-            var original = pool.Rent();
+            RichTextParserPool pool = RichTextParserPool.Instance;
+            RichTextParser original = pool.Rent();
 
             // Act
             pool.Return(original);
-            var reused = pool.Rent();
+            RichTextParser reused = pool.Rent();
 
             // Assert
             Assert.AreSame(original, reused);
@@ -79,17 +58,17 @@ namespace HintServiceMeow.Tests.Pools
         public void Rent_MultipleTimes_ReturnsDistinctInstances()
         {
             // Arrange
-            var pool = RichTextParserPool.Instance;
+            RichTextParserPool pool = RichTextParserPool.Instance;
             int count = 5;
-            var instances = new List<RichTextParser>();
+            List<RichTextParser> instances = [];
 
             // Act
             for (int i = 0; i < count; i++)
                 instances.Add(pool.Rent());
 
             // Assert
-            var set = new HashSet<RichTextParser>(new ReferenceComparer<RichTextParser>());
-            foreach (var parser in instances)
+            HashSet<RichTextParser> set = new(new ReferenceComparer<RichTextParser>());
+            foreach (RichTextParser parser in instances)
             {
                 Assert.IsTrue(set.Add(parser), "Pool returned duplicate RichTextParser instance");
             }
@@ -108,21 +87,20 @@ namespace HintServiceMeow.Tests.Pools
         public void Return_DoesNotClearParserState_FontSizeStack()
         {
             // Arrange
-            var pool = RichTextParserPool.Instance;
-            var parser = pool.Rent();
+            RichTextParserPool pool = RichTextParserPool.Instance;
+            RichTextParser parser = pool.Rent();
 
-            // Manually push a value onto fontSizeStack via reflection
-            var fontSizeStack = GetParserField<Stack<float>>(parser, "fontSizeStack");
+            Stack<float> fontSizeStack = ReflectionHelper.GetFieldValue<Stack<float>>(parser, "fontSizeStack");
             fontSizeStack.Push(42f);
             Assert.AreEqual(1, fontSizeStack.Count);
 
             // Act
             pool.Return(parser);
-            var reused = pool.Rent();
+            RichTextParser reused = pool.Rent();
 
             // Assert
             Assert.AreSame(parser, reused);
-            var reusedStack = GetParserField<Stack<float>>(reused, "fontSizeStack");
+            Stack<float> reusedStack = ReflectionHelper.GetFieldValue<Stack<float>>(reused, "fontSizeStack");
             // If this PASSES (Count == 0), the bug is fixed.
             // If this FAILS, the bug still exists (state leaks between uses).
             Assert.AreEqual(0, reusedStack.Count,
@@ -138,18 +116,16 @@ namespace HintServiceMeow.Tests.Pools
         public void Return_DoesNotClearParserState_StyleField()
         {
             // Arrange
-            var pool = RichTextParserPool.Instance;
-            var parser = pool.Rent();
-
-            // Set style to Bold via reflection (TextStyle is internal, accessible via InternalsVisibleTo)
-            SetParserField(parser, "style", TextStyle.Bold);
+            RichTextParserPool pool = RichTextParserPool.Instance;
+            RichTextParser parser = pool.Rent();
+            ReflectionHelper.SetFieldValue(parser, "style", TextStyle.Bold);
 
             // Act
             pool.Return(parser);
-            var reused = pool.Rent();
+            RichTextParser reused = pool.Rent();
 
             // Assert
-            var style = GetParserField<TextStyle>(reused, "style");
+            TextStyle style = ReflectionHelper.GetFieldValue<TextStyle>(reused, "style");
             // If this PASSES (style == Normal), the bug is fixed.
             Assert.AreEqual(TextStyle.Normal, style,
                 "[BUG] Parser style field not cleared on Return — state leaks between uses");
@@ -164,18 +140,18 @@ namespace HintServiceMeow.Tests.Pools
         public void Return_DoesNotClearParserState_AlignmentStack()
         {
             // Arrange
-            var pool = RichTextParserPool.Instance;
-            var parser = pool.Rent();
+            RichTextParserPool pool = RichTextParserPool.Instance;
+            RichTextParser parser = pool.Rent();
 
-            var alignStack = GetParserField<Stack<HintAlignment>>(parser, "hintAlignmentStack");
+            Stack<HintAlignment> alignStack = ReflectionHelper.GetFieldValue<Stack<HintAlignment>>(parser, "hintAlignmentStack");
             alignStack.Push(HintAlignment.Left);
 
             // Act
             pool.Return(parser);
-            var reused = pool.Rent();
+            RichTextParser reused = pool.Rent();
 
             // Assert
-            var reusedStack = GetParserField<Stack<HintAlignment>>(reused, "hintAlignmentStack");
+            Stack<HintAlignment> reusedStack = ReflectionHelper.GetFieldValue<Stack<HintAlignment>>(reused, "hintAlignmentStack");
             Assert.AreEqual(0, reusedStack.Count,
                 "[BUG] Parser hintAlignmentStack not cleared on Return — state leaks between uses");
         }
@@ -189,18 +165,18 @@ namespace HintServiceMeow.Tests.Pools
         public void Return_DoesNotClearParserState_CaseStyleStack()
         {
             // Arrange
-            var pool = RichTextParserPool.Instance;
-            var parser = pool.Rent();
+            RichTextParserPool pool = RichTextParserPool.Instance;
+            RichTextParser parser = pool.Rent();
 
-            var caseStyleStack = GetParserField<List<CaseStyle>>(parser, "caseStyleStack");
+            List<CaseStyle> caseStyleStack = ReflectionHelper.GetFieldValue<List<CaseStyle>>(parser, "caseStyleStack");
             caseStyleStack.Add(CaseStyle.Uppercase);
 
             // Act
             pool.Return(parser);
-            var reused = pool.Rent();
+            RichTextParser reused = pool.Rent();
 
             // Assert
-            var reusedStack = GetParserField<List<CaseStyle>>(reused, "caseStyleStack");
+            List<CaseStyle> reusedStack = ReflectionHelper.GetFieldValue<List<CaseStyle>>(reused, "caseStyleStack");
             Assert.AreEqual(0, reusedStack.Count,
                 "[BUG] Parser caseStyleStack not cleared on Return — state leaks between uses");
         }
@@ -214,19 +190,18 @@ namespace HintServiceMeow.Tests.Pools
         public void Return_DoesNotClearParserState_ScriptStyles()
         {
             // Arrange
-            var pool = RichTextParserPool.Instance;
-            var parser = pool.Rent();
+            RichTextParserPool pool = RichTextParserPool.Instance;
+            RichTextParser parser = pool.Rent();
 
-            // ScriptStyle is internal, accessible via InternalsVisibleTo
-            var scriptStyles = GetParserField<List<ScriptStyle>>(parser, "scriptStyles");
+            List<ScriptStyle> scriptStyles = ReflectionHelper.GetFieldValue<List<ScriptStyle>>(parser, "scriptStyles");
             scriptStyles.Add(ScriptStyle.Superscript);
 
             // Act
             pool.Return(parser);
-            var reused = pool.Rent();
+            RichTextParser reused = pool.Rent();
 
             // Assert
-            var reusedStyles = GetParserField<List<ScriptStyle>>(reused, "scriptStyles");
+            List<ScriptStyle> reusedStyles = ReflectionHelper.GetFieldValue<List<ScriptStyle>>(reused, "scriptStyles");
             Assert.AreEqual(0, reusedStyles.Count,
                 "[BUG] Parser scriptStyles not cleared on Return — state leaks between uses");
         }
@@ -240,18 +215,18 @@ namespace HintServiceMeow.Tests.Pools
         public void Return_DoesNotClearParserState_RawLineText()
         {
             // Arrange
-            var pool = RichTextParserPool.Instance;
-            var parser = pool.Rent();
+            RichTextParserPool pool = RichTextParserPool.Instance;
+            RichTextParser parser = pool.Rent();
 
-            var rawLineText = GetParserField<StringBuilder>(parser, "currentRawLineText");
+            StringBuilder rawLineText = ReflectionHelper.GetFieldValue<StringBuilder>(parser, "currentRawLineText");
             rawLineText.Append("leftover text from previous parse");
 
             // Act
             pool.Return(parser);
-            var reused = pool.Rent();
+            RichTextParser reused = pool.Rent();
 
             // Assert
-            var reusedText = GetParserField<StringBuilder>(reused, "currentRawLineText");
+            StringBuilder reusedText = ReflectionHelper.GetFieldValue<StringBuilder>(reused, "currentRawLineText");
             Assert.AreEqual(0, reusedText.Length,
                 "[BUG] Parser currentRawLineText not cleared on Return — state leaks between uses");
         }
@@ -265,14 +240,14 @@ namespace HintServiceMeow.Tests.Pools
         public async Task ConcurrentRent_NoDuplicateInstances()
         {
             // Arrange
-            var pool = RichTextParserPool.Instance;
+            RichTextParserPool pool = RichTextParserPool.Instance;
             int count = 100;
 
             // Pre-fill pool
             for (int i = 0; i < count; i++)
                 pool.Return(new RichTextParser());
 
-            var results = new ConcurrentBag<RichTextParser>();
+            ConcurrentBag<RichTextParser> results = [];
 
             // Act
             var tasks = Enumerable.Range(0, count).Select(_ => Task.Run(() =>
@@ -282,8 +257,8 @@ namespace HintServiceMeow.Tests.Pools
             await Task.WhenAll(tasks);
 
             // Assert
-            var set = new HashSet<RichTextParser>(new ReferenceComparer<RichTextParser>());
-            foreach (var parser in results)
+            HashSet<RichTextParser> set = new(new ReferenceComparer<RichTextParser>());
+            foreach (RichTextParser parser in results)
             {
                 Assert.IsTrue(set.Add(parser),
                     "Pool returned duplicate RichTextParser instance in concurrent access");
@@ -295,16 +270,16 @@ namespace HintServiceMeow.Tests.Pools
         public async Task ConcurrentReturn_ThenRent_AllAvailable()
         {
             // Arrange
-            var pool = RichTextParserPool.Instance;
+            RichTextParserPool pool = RichTextParserPool.Instance;
             int count = 100;
-            var parsers = Enumerable.Range(0, count).Select(_ => new RichTextParser()).ToList();
+            List<RichTextParser> parsers = Enumerable.Range(0, count).Select(_ => new RichTextParser()).ToList();
 
             // Act - return all concurrently
             var returnTasks = parsers.Select(p => Task.Run(() => pool.Return(p)));
             await Task.WhenAll(returnTasks);
 
             // Rent all back
-            var rented = new ConcurrentBag<RichTextParser>();
+            ConcurrentBag<RichTextParser> rented = [];
             var rentTasks = Enumerable.Range(0, count).Select(_ => Task.Run(() =>
             {
                 rented.Add(pool.Rent());
@@ -331,30 +306,29 @@ namespace HintServiceMeow.Tests.Pools
         #region Boundary
 
         [TestMethod]
-        public void Return_Null_Throw()
+        public void Return_WhenNull_Throws()
         {
             // Arrange
-            var pool = RichTextParserPool.Instance;
+            RichTextParserPool pool = RichTextParserPool.Instance;
 
-            // Act - Return(null) enqueues null into the ConcurrentQueue
+            // Act & Assert
             Assert.Throws<NullReferenceException>(() => pool.Return(null),
                 "Returning null should throw an exception to prevent pool corruption");
         }
 
         [TestMethod]
-        public void DoubleReturn_SameParser_DoesNotCauseDuplicateRent()
+        public void DoubleReturn_WhenSameParserReturnedTwice_DoesNotCauseDuplicateRent()
         {
             // Arrange
-            var pool = RichTextParserPool.Instance;
-            var parser = pool.Rent();
+            RichTextParserPool pool = RichTextParserPool.Instance;
+            RichTextParser parser = pool.Rent();
 
             // Act - return the same instance twice
             pool.Return(parser);
             pool.Return(parser);
 
-            // Rent twice
-            var first = pool.Rent();
-            var second = pool.Rent();
+            RichTextParser first = pool.Rent();
+            RichTextParser second = pool.Rent();
 
             // Assert
             // ConcurrentQueue stores two references to the same object.
@@ -369,11 +343,11 @@ namespace HintServiceMeow.Tests.Pools
         #region Singleton
 
         [TestMethod]
-        public void Instance_AlwaysReturnsSameInstance()
+        public void Instance_WhenAccessedMultipleTimes_AlwaysReturnsSameInstance()
         {
             // Act
-            var instance1 = RichTextParserPool.Instance;
-            var instance2 = RichTextParserPool.Instance;
+            RichTextParserPool instance1 = RichTextParserPool.Instance;
+            RichTextParserPool instance2 = RichTextParserPool.Instance;
 
             // Assert
             Assert.AreSame(instance1, instance2);

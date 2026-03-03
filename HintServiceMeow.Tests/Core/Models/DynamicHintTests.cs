@@ -9,10 +9,12 @@ namespace HintServiceMeow.Tests.Core.Models;
 public class DynamicHintTests
 {
     [TestMethod]
-    public void Constructor_ShouldHaveExpectedDefaults()
+    public void Constructor_WhenDefault_HasExpectedDefaults()
     {
+        // Arrange & Act
         DynamicHint hint = new();
 
+        // Assert
         Assert.AreEqual(0f, hint.TopBoundary);
         Assert.AreEqual(1000f, hint.BottomBoundary);
         Assert.AreEqual(-1200f, hint.LeftBoundary);
@@ -21,8 +23,9 @@ public class DynamicHintTests
     }
 
     [TestMethod]
-    public void CopyConstructor_ShouldCloneValues_AndUseNewGuid()
+    public void CopyConstructor_WhenSourceProvided_ClonesValuesAndUsesNewGuid()
     {
+        // Arrange
         DynamicHint source = new()
         {
             TargetX = 1,
@@ -32,8 +35,10 @@ public class DynamicHintTests
             LeftMargin = 11,
         };
 
+        // Act
         DynamicHint copy = new(source);
 
+        // Assert
         Assert.AreNotEqual(source.Guid, copy.Guid);
         Assert.AreEqual(source.TargetX, copy.TargetX);
         Assert.AreEqual(source.Priority, copy.Priority);
@@ -42,15 +47,18 @@ public class DynamicHintTests
     }
 
     [TestMethod]
-    public void PropertySetters_ShouldRaiseSingleUpdate_When_ValueActuallyChanges()
+    public void PropertySetters_WhenValueActuallyChanges_RaiseSingleUpdate()
     {
+        // Arrange
         DynamicHint hint = new();
         FixedUpdateAnalyser analyser = new();
         hint.UpdateAnalyser = analyser;
 
+        // Act
         hint.Strategy = DynamicHintStrategy.Hide;
         hint.Strategy = DynamicHintStrategy.StayInPosition;
 
+        // Assert
         Assert.AreEqual(1, analyser.OnUpdateCallCount);
     }
 }
