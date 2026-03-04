@@ -78,12 +78,13 @@
                         return;
 
                     yCoordinate = value;
-                    OnHintUpdated("YCoordinate");
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(YCoordinate));
             }
         }
 
@@ -115,12 +116,13 @@
                         return;
 
                     xCoordinate = value;
-                    OnHintUpdated("XCoordinate");
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(XCoordinate));
             }
         }
 
@@ -151,12 +153,13 @@
                         return;
 
                     alignment = value;
-                    OnHintUpdated("Alignment");
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(Alignment));
             }
         }
 
@@ -187,12 +190,13 @@
                         return;
 
                     yCoordinateAlign = value;
-                    OnHintUpdated("YCoordinateAlign");
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(YCoordinateAlign));
             }
         }
 

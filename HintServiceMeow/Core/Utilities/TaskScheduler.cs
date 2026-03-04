@@ -269,9 +269,6 @@
                 // Reset Elapsed
                 elapsed = TimeSpan.Zero;
                 startTimeStamp = DateTime.Now;
-
-                // Reset scheduled action time
-                scheduledActionTime = DateTime.MaxValue;
             }
             finally
             {
@@ -322,11 +319,7 @@
             try
             {
                 // start action
-                if (!task.Invoke() && InvokeUntilSuccess)
-                {
-                    return;
-                }
-                else
+                if (task.Invoke() || !InvokeUntilSuccess)
                 {
                     // Reset Timer
                     schedulerLock.EnterWriteLock();
@@ -385,7 +378,7 @@
             // Check if the action should be executed, if not, continue, else, break the loop
             try
             {
-                if (!IsReadyForNextAction || ScheduledActionTime == DateTime.MaxValue || DateTime.Now < ScheduledActionTime || IsPaused)
+                if (!IsReadyForNextAction || ScheduledActionTime == DateTime.MaxValue || ScheduledActionTime > DateTime.Now || IsPaused)
                     return Task.CompletedTask;
             }
             catch (Exception ex)
@@ -394,6 +387,7 @@
             }
 
             InvokeAction();
+
             return Task.CompletedTask;
         }
     }

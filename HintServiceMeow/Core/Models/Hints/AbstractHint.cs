@@ -157,12 +157,13 @@
                         return;
 
                     syncSpeed = value;
-                    OnHintUpdated("SyncSpeed");
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(SyncSpeed));
             }
         }
 
@@ -190,12 +191,13 @@
                         return;
 
                     fontSize = value;
-                    OnHintUpdated("FontSize");
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(FontSize));
             }
         }
 
@@ -223,12 +225,13 @@
                         return;
 
                     lineHeight = value;
-                    OnHintUpdated("LineHeight");
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(LineHeight));
             }
         }
 
@@ -259,12 +262,13 @@
 
                     content = value;
                     content.ContentUpdated += OnContentUpdate;
-                    OnHintUpdated("Content");
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(Content));
             }
         }
 
@@ -299,10 +303,10 @@
                     }
                     else
                     {
-                        Content = new StringContent(value);
+                        content.ContentUpdated -= OnContentUpdate;
+                        content = new StringContent(value);
+                        content.ContentUpdated += OnContentUpdate;
                     }
-
-                    OnHintUpdated("Text");
                 }
                 catch (Exception ex)
                 {
@@ -312,6 +316,8 @@
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(Text));
             }
         }
 
@@ -340,13 +346,16 @@
                 Lock.EnterWriteLock();
                 try
                 {
-                    Content = new AutoContent(value);
-                    OnHintUpdated("AutoText");
+                    content.ContentUpdated -= OnContentUpdate;
+                    content = new AutoContent(value);
+                    content.ContentUpdated += OnContentUpdate;
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(AutoText));
             }
         }
 
@@ -374,12 +383,13 @@
                         return;
 
                     hide = value;
-                    OnHintUpdated("Hide");
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(Hide));
             }
         }
 
@@ -428,7 +438,7 @@
 
         private void OnContentUpdate()
         {
-            OnHintUpdated("Content");
+            OnHintUpdated(nameof(Content));
         }
         #endregion
     }

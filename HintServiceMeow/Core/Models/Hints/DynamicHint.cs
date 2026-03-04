@@ -85,12 +85,13 @@
                         return;
 
                     topBoundary = value;
-                    OnHintUpdated("TopBoundary");
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(TopBoundary));
             }
         }
 
@@ -121,12 +122,13 @@
                         return;
 
                     bottomBoundary = value;
-                    OnHintUpdated("BottomBoundary");
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(BottomBoundary));
             }
         }
 
@@ -157,12 +159,13 @@
                         return;
 
                     leftBoundary = value;
-                    OnHintUpdated("LeftBoundary");
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(LeftBoundary));
             }
         }
 
@@ -193,12 +196,13 @@
                         return;
 
                     rightBoundary = value;
-                    OnHintUpdated("RightBoundary");
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(RightBoundary));
             }
         }
 
@@ -229,12 +233,13 @@
                         return;
 
                     targetY = value;
-                    OnHintUpdated("TargetY");
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(TargetY));
             }
         }
 
@@ -265,12 +270,13 @@
                         return;
 
                     targetX = value;
-                    OnHintUpdated("TargetX");
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(TargetX));
             }
         }
 
@@ -298,12 +304,13 @@
                         return;
 
                     topMargin = value;
-                    OnHintUpdated("TopMargin");
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(TopMargin));
             }
         }
 
@@ -331,12 +338,13 @@
                         return;
 
                     bottomMargin = value;
-                    OnHintUpdated("BottomMargin");
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(BottomMargin));
             }
         }
 
@@ -364,12 +372,13 @@
                         return;
 
                     leftMargin = value;
-                    OnHintUpdated("LeftMargin");
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(LeftMargin));
             }
         }
 
@@ -397,12 +406,13 @@
                         return;
 
                     rightMargin = value;
-                    OnHintUpdated("RightMargin");
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(RightMargin));
             }
         }
 
@@ -433,12 +443,13 @@
                         return;
 
                     priority = value;
-                    OnHintUpdated("Priority");
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(Priority));
             }
         }
 
@@ -466,12 +477,13 @@
                         return;
 
                     strategy = value;
-                    OnHintUpdated("Strategy");
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(Strategy));
             }
         }
     }
