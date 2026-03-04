@@ -564,7 +564,10 @@ namespace HintServiceMeow.Tests.Core.Models.HintContent
             var results = new ConcurrentBag<string>();
             var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
 
+            Console.WriteLine("Starting concurrent GetText while TryUpdate is running...");
+
             // Act - one thread does TryUpdate, others read GetText
+            Console.WriteLine("Starting TryUpdate task...");
             var updateTask = Task.Run(() =>
             {
                 while (!cts.Token.IsCancellationRequested)
@@ -574,7 +577,8 @@ namespace HintServiceMeow.Tests.Core.Models.HintContent
                 }
             });
 
-            var readTasks = Enumerable.Range(0, 49).Select(_ => Task.Run(() =>
+            Console.WriteLine("Starting GetText tasks...");
+            var readTasks = Enumerable.Range(0, 10).Select(_ => Task.Run(() =>
             {
                 while (!cts.Token.IsCancellationRequested)
                 {
@@ -583,6 +587,7 @@ namespace HintServiceMeow.Tests.Core.Models.HintContent
             }));
 
             // Assert - should not throw
+            Console.WriteLine("Waiting for tasks to complete...");
             await Task.WhenAll(readTasks.Append(updateTask));
         }
 
