@@ -53,18 +53,20 @@
             Hint hint2 = new Hint
             {
                 AutoText = ev => DateTime.Now.ToString("HH:mm:ss"), // You can also use a function to set the text of the hint, and the hint will update itself.
-                Alignment = HintAlignment.Left, // You can set the properties of the hint in any order you want, and you can also choose to not set some properties, because all properties have a default value.
+                Alignment = HintAlignment.Right, // You can set the properties of the hint in any order you want, and you can also choose to not set some properties, because all properties have a default value.
                 YCoordinate = 200
             };
 
             Hint hint3 = new Hint()
             {
+                YCoordinate = 300,
+                Alignment = HintAlignment.Right,
                 AutoText = ev =>
                 {
-                    ev.NextUpdateDelay = TimeSpan.FromSeconds(5f); // You can set the next update delay in the event argument, and the hint will update itself after the delay. This is useful when you want to update the hint after a certain time interval.
+                    ev.NextUpdateDelay = TimeSpan.FromSeconds(2f); // You can set the next update delay in the event argument, and the hint will update itself after the delay. This is useful when you want to update the hint after a certain time interval.
 
-                    return Server.Tps.ToString("F2");
-                }
+                    return "TPS: " + Server.Tps.ToString("F2");
+                },
             };
 
             // You can set the properties of the hint like this:
