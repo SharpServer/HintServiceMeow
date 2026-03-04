@@ -19,7 +19,7 @@
         public PlayerDisplay PlayerDisplay { get; }
 
         /// <summary>
-        /// Gets or sets the delay before the next update. Count in seconds.
+        /// Gets or sets the delay before the next update.
         /// </summary>
         public TimeSpan NextUpdateDelay { get; set; }
 
