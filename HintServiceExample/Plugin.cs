@@ -2,11 +2,12 @@
 {
     using System;
     using HintServiceMeow.Core.Enum;
+    using HintServiceMeow.Core.Extension;
     using HintServiceMeow.Core.Models.Hints;
     using HintServiceMeow.Core.Utilities;
     using HintServiceMeow.UI.Utilities;
     using LabApi.Events.Arguments.PlayerEvents;
-    using LabApi.Features.Console;
+    using UnityEngine;
     using Hint = HintServiceMeow.Core.Models.Hints.Hint;
 
     /// <summary>
@@ -22,13 +23,13 @@
         public override void Enable()
         {
             LabApi.Events.Handlers.PlayerEvents.Joined += EventHandler.OnVerified;
-            //LabApi.Events.Handlers.ServerEvents.WaitingForPlayers += EventHandler.OnWaitingForPlayer;
+            LabApi.Events.Handlers.ServerEvents.WaitingForPlayers += EventHandler.OnWaitingForPlayer;
         }
 
         public override void Disable()
         {
             LabApi.Events.Handlers.PlayerEvents.Joined -= EventHandler.OnVerified;
-            //LabApi.Events.Handlers.ServerEvents.WaitingForPlayers -= EventHandler.OnWaitingForPlayer;
+            LabApi.Events.Handlers.ServerEvents.WaitingForPlayers -= EventHandler.OnWaitingForPlayer;
         }
     }
 
@@ -37,48 +38,53 @@
         public static void OnWaitingForPlayer()
         {
             //To better demonstrate the hint, we will hide the lobby timer
-            //GameObject.Find("StartRound").transform.localScale = Vector3.zero;
+            GameObject.Find("StartRound").transform.localScale = Vector3.zero;
         }
 
         public static void OnVerified(PlayerJoinedEventArgs ev)
         {
-            Logger.Info("Player Joined: " + ev.Player.Nickname);
-            Logger.Info("Adding hints to player...");
-
+            // Hint is a simple hint that can be shown on the player's screen.
             Hint hint = new Hint
             {
-                Text = "Hello World"
+                Text = "Hello World" // You can set the properties of the hint in a pair of braces({})
             };
 
-            Logger.Info("Setting hint properties...");
-
+            // You can set the properties of the hint like this:
             hint.FontSize = 40;
             hint.YCoordinate = 700;
             hint.Alignment = HintAlignment.Left;
+            // After setting the properties, you don't need to use method to call for an update. All update will be done automatically by the HSM(HintServiceMeow).
 
-            Logger.Info("Adding hint to player display...");
-
+            // You can show a hint to a player by adding it to the player's PlayerDisplay.
+            // You can also remove it by removing it from the PlayerDisplay.
             PlayerDisplay playerDisplay = PlayerDisplay.Get(ev.Player);
             playerDisplay.AddHint(hint);
+            playerDisplay.RemoveHint(hint);
 
-            Logger.Info("Adding dynamic hint to player display...");
+            // You can also use extension method to make it easier
+            ev.Player.AddHint(hint); // This is equivalent to playerDisplay.AddHint(hint);
+            ev.Player.RemoveHint(hint); // This is equivalent to playerDisplay.RemoveHint(hint);
 
+            // If you only want to show a hint temporarily, you can use ShowHint
+            playerDisplay.ShowHint(hint, 12f); // This show a hint for 12 second, then hide it.
+
+            // DynamicHint is a hint that can automatically arrange itself to avoid overlapping with other hints.
             DynamicHint dynamicHint = new DynamicHint
             {
-                Text = "Hello Dynamic Hint"
+                Text = "Hello Dynamic Hint",
+                TargetX = 100f, // You can choose to set a property or not to in a braces. All properties have a default value, so you can just set the properties you want to change.
             };
 
             playerDisplay.AddHint(dynamicHint);
 
-            Logger.Info("Showing various types of hints using PlayerUI...");
-
+            // PlayerUI::CommonHint is a set of preset hints that help you to show hints easily
             PlayerUI ui = PlayerUI.Get(ev.Player);
             ui.CommonHint.ShowRoleHint("SCP173", ["Kill all humans", "Use your skills"]);
             ui.CommonHint.ShowMapHint("Heavy Containment Zone", "The place where most SCPs spawn");
             ui.CommonHint.ShowItemHint("Keycard", "Used to open doors");
             ui.CommonHint.ShowOtherHint("The server is starting!");
 
-            Logger.Info("Finished adding hints to player.");
+            // Read CoreFeatures.md to learn more
         }
     }
 }
