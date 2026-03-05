@@ -54,13 +54,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="UpdateLog.txt" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="UpdateLog.txt">
-      <Pack>false</Pack>
-    </None>
     <EmbeddedResource Include="TextWidth" />
   </ItemGroup>
 
