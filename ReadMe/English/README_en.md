@@ -33,3 +33,12 @@ Here are some useful resources to get you started:
 ### 2. Why do hints overlap with each other?
 - This might happen when multiple plugins place hints in the same position. You can adjust the UI position in each plugin's configuration file. 
 - If a plugin doesn't allow you to change the position via its config file, please contact the plugin's author for assistance.
+
+# Contributors
+
+Thank you to everyone who has contributed to HintServiceMeow! 
+Your pull requests, bug reports, and suggestions help keep this project running.
+
+[@Someone](https://github.com/Someone-193) - For adding code style check.
+[XLittleLeft](https://github.com/XLittleLeft) - For adding LabAPI support.
+[Firething](https://github.com/Firething) - For adding Portuguese translation.
