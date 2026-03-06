@@ -151,7 +151,7 @@
 
         public void ShowMapHint(string roomName, float time) => ShowMapHint(roomName, [], time);
 
-        public void ShowMapHint(string roomName, string description) => ShowMapHint(roomName, [description], Config.ItemHintDisplayTime);
+        public void ShowMapHint(string roomName, string description) => ShowMapHint(roomName, [description], Config.MapHintDisplayTime);
 
         public void ShowMapHint(string roomName, string description, float time) => ShowMapHint(roomName, [description], time);
 
@@ -182,7 +182,7 @@
 
         public void ShowRoleHint(string roleName, float time) => ShowRoleHint(roleName, [], time);
 
-        public void ShowRoleHint(string roleName, string description) => ShowRoleHint(roleName, [description], Config.ItemHintDisplayTime);
+        public void ShowRoleHint(string roleName, string description) => ShowRoleHint(roleName, [description], Config.RoleHintDisplayTime);
 
         public void ShowRoleHint(string roleName, string description, float time) => ShowRoleHint(roleName, [description], time);
 

@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - A bug that could potentially cause `NullReferenceException` in `PlayerDisplay::Destruct()`.
 - Bugs that could cause thread issues in `TaskScheduler`.
 - A bug in `AbstractHint`, `Hint`, and `DynamicHint` that caused deadlock when multiple instances in the same `PlayerDisplay` were updated at the same time.
+- A bug that cause some methods in common hint to use wrong default display time.
 
 ### Changed
 - Set `CompatibilityAdaptor` to disabled by default to ensure safety.
