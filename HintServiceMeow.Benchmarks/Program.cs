@@ -12,8 +12,7 @@ namespace MyProject.Benchmarks
             Logger.Instance = new TestLogger();
 
             // Start the Benchmark Runner
-            _ = BenchmarkRunner.Run<MaximumLoadBenchmark>();
-            _ = BenchmarkRunner.Run<DailyLoadBenchmark>();
+            _ = BenchmarkRunner.Run<HintParserBenchmark>();
 
             Console.WriteLine("Benchmarks complete. Press any key to exit...");
             Console.ReadKey();
