@@ -121,6 +121,7 @@ namespace HintServiceMeow.UI.Utilities
         #region Common Hint Methods
 
         #region Common Item Hints Methods
+
         /// <summary>
         /// Displays an item hint with only the item name, using the configured short display time.
         /// </summary>
@@ -181,6 +182,7 @@ namespace HintServiceMeow.UI.Utilities
         #endregion Common Item Hints Methods
 
         #region Common Map Hints Methods
+
         /// <summary>
         /// Displays a map hint with only the room name, using the configured short display time.
         /// </summary>
@@ -243,6 +245,7 @@ namespace HintServiceMeow.UI.Utilities
         #endregion Common Map Hints Methods
 
         #region Common Role Hints Methods
+
         /// <summary>
         /// Displays a role hint with only the role name, using the configured short display time.
         /// </summary>
@@ -305,6 +308,7 @@ namespace HintServiceMeow.UI.Utilities
         #endregion Common Role Hints Methods
 
         #region Common Other Hints Methods
+
         /// <summary>
         /// Displays a single general-purpose hint message using the configured display time.
         /// </summary>

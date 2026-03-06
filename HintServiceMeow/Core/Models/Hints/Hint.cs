@@ -14,6 +14,7 @@ namespace HintServiceMeow.Core.Models.Hints
         private float yCoordinate = 700;
 
         #region Constructors
+
         /// <summary>
         /// Initializes a new instance of the <see cref="Hint"/> class with default values.
         /// </summary>

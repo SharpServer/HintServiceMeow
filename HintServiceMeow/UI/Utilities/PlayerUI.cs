@@ -29,6 +29,7 @@ namespace HintServiceMeow.UI.Utilities
         #endregion
 
         #region Properties
+
         /// <summary>
         /// Gets the <see cref="global::ReferenceHub"/> this UI instance is bound to.
         /// </summary>
@@ -46,6 +47,7 @@ namespace HintServiceMeow.UI.Utilities
         #endregion
 
         #region Methods
+
         /// <summary>
         /// Gets or creates the <see cref="PlayerUI"/> instance for the specified reference hub.
         /// </summary>

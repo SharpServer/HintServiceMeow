@@ -65,13 +65,16 @@ namespace HintServiceMeow.Core.Models.Hints
         #endregion
 
         #region Events
+
         /// <summary>
         /// Occurs when a property value changes.
         /// </summary>
         public event PropertyChangedEventHandler? PropertyChanged;
+
         #endregion
 
         #region Properties
+
         /// <summary>
         /// Gets or sets the update analyser used to track and estimate hint update timing.
         /// </summary>
