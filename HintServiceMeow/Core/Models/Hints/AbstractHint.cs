@@ -1,7 +1,6 @@
 ﻿namespace HintServiceMeow.Core.Models.Hints
 {
     using System;
-    using System.Collections.Concurrent;
     using System.ComponentModel;
     using System.Threading;
     using HintServiceMeow.Core.Enum;
@@ -393,8 +392,6 @@
             }
         }
 
-        internal ConcurrentDictionary<object, object> InternalCache { get; set; } = new ConcurrentDictionary<object, object>();
-
         protected ReaderWriterLockSlim Lock { get; } = new(LockRecursionPolicy.SupportsRecursion);
         #endregion
 
@@ -430,7 +427,6 @@
 
         protected virtual void OnHintUpdated(string argumentName)
         {
-            InternalCache.Clear();
             analyser.OnUpdate();
 
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(argumentName));

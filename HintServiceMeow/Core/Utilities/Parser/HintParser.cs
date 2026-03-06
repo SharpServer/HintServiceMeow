@@ -37,13 +37,6 @@
         private readonly Queue<ValueTuple<float, float>> queue = new();
         private readonly HashSet<ValueTuple<float, float>> visited = new();
 
-        // Index buffers
-        private int indexPTM1 = 0; // Parse to message 1
-        private int indexPTM2 = 0; // Parse to message 2
-        private int indexPTH = 0; // Parse to hint
-        private int indexPTRT = 0; // Parse to rich text
-        private int indexRIT = 0; // Remove illegal tags
-
         public HintParser(
             ICache<Guid, ValueTuple<float, float>>? dynamicHintPositionCache = null,
             ICoordinateTools? coordinateTool = null,
@@ -62,31 +55,31 @@
         {
             IReadOnlyList<IReadOnlyList<AbstractHint>> allGroups = collection.AllGroups;
 
-            for (indexPTM1 = 0; indexPTM1 < allGroups.Count; indexPTM1++)
+            for (int i = 0; i < allGroups.Count; i++)
             {
-                for (indexPTM2 = 0; indexPTM2 < allGroups[indexPTM1].Count; indexPTM2++)
+                for (int j = 0; j < allGroups[i].Count; j++)
                 {
-                    if (allGroups[indexPTM1][indexPTM2] is Hint { Hide: false } hint && !string.IsNullOrEmpty(hint.Content.GetText()))
+                    if (allGroups[i][j] is Hint { Hide: false } hint && !string.IsNullOrEmpty(hint.Content.GetText()))
                         dynamicHintColliders.Add(ParseToArea(hint));
                 }
             }
 
-            for (indexPTM1 = 0; indexPTM1 < allGroups.Count; indexPTM1++)
+            for (int i = 0; i < allGroups.Count; i++)
             {
-                if (allGroups[indexPTM1].Count == 0)
+                if (allGroups[i].Count == 0)
                 {
                     continue; // Don't add empty group
                 }
 
-                for (indexPTM2 = 0; indexPTM2 < allGroups[indexPTM1].Count; indexPTM2++)
+                for (int j = 0; j < allGroups[i].Count; j++)
                 {
                     // Filter invisible hints
-                    if (allGroups[indexPTM1][indexPTM2] is null || allGroups[indexPTM1][indexPTM2].Hide || string.IsNullOrEmpty(allGroups[indexPTM1][indexPTM2].Content.GetText()))
+                    if (allGroups[i][j] is null || allGroups[i][j].Hide || string.IsNullOrEmpty(allGroups[i][j].Content.GetText()))
                         continue;
 
-                    if (allGroups[indexPTM1][indexPTM2] is Hint s)
+                    if (allGroups[i][j] is Hint s)
                         orderedHints.Add(s);
-                    else if (allGroups[indexPTM1][indexPTM2] is DynamicHint d)
+                    else if (allGroups[i][j] is DynamicHint d)
                         dynamicHints.Add(d);
                 }
 
@@ -94,9 +87,9 @@
                 Comparison<DynamicHint> dynamicHintPriorityComparer = (a, b) => b.Priority - a.Priority;
                 dynamicHints.Sort(dynamicHintPriorityComparer);
 
-                for (indexPTM2 = 0; indexPTM2 < dynamicHints.Count; indexPTM2++)
+                for (int j = 0; j < dynamicHints.Count; j++)
                 {
-                    Hint? handledDH = ParseToHint(dynamicHints[indexPTM2], dynamicHintColliders);
+                    Hint? handledDH = ParseToHint(dynamicHints[j], dynamicHintColliders);
 
                     if (handledDH is null)
                         continue;
@@ -105,17 +98,17 @@
                     orderedHints.Add(handledDH);
                 }
 
-                for (indexPTM2 = 0; indexPTM2 < orderedHints.Count; indexPTM2++)
+                for (int j = 0; j < orderedHints.Count; j++)
                 {
-                    sortBuffer.Add(new HintSortData(orderedHints[indexPTM2], coordinateTool.GetYCoordinate(orderedHints[indexPTM2], HintVerticalAlign.Bottom)));
+                    sortBuffer.Add(new HintSortData(orderedHints[j], coordinateTool.GetYCoordinate(orderedHints[j], HintVerticalAlign.Bottom)));
                 }
 
                 // Sort and add to ordered hint groups
                 sortBuffer.Sort();
 
-                for (indexPTM2 = 0; indexPTM2 < sortBuffer.Count; indexPTM2++)
+                for (int j = 0; j < sortBuffer.Count; j++)
                 {
-                    orderedHintGroups.Add(sortBuffer[indexPTM2].Hint);
+                    orderedHintGroups.Add(sortBuffer[j].Hint);
                 }
 
                 orderedHintGroups.Add(null!);
@@ -130,16 +123,16 @@
 
             messageBuilder.AppendLine(PlaceholderTop); // Place Holder
 
-            for (indexPTM1 = 0; indexPTM1 < orderedHintGroups.Count; indexPTM1++)
+            for (int i = 0; i < orderedHintGroups.Count; i++)
             {
                 // When a group ends
-                if (orderedHintGroups[indexPTM1] is null)
+                if (orderedHintGroups[i] is null)
                 {
                     messageBuilder.AppendLine("</align></size></b></i>"); // Make sure one group will not affect another group
                     continue;
                 }
 
-                ParseToRichText(orderedHintGroups[indexPTM1], messageBuilder);
+                ParseToRichText(orderedHintGroups[i], messageBuilder);
             }
 
             messageBuilder.AppendLine(PlaceholderBottom); // Place Holder
@@ -172,9 +165,9 @@
 
             bool targetAreaAvailable = true;
 
-            for (indexPTH = 0; indexPTH < colliders.Count; indexPTH++)
+            for (int i = 0; i < colliders.Count; i++)
             {
-                if (targetArea.HasIntersection(colliders[indexPTH]))
+                if (targetArea.HasIntersection(colliders[i]))
                 {
                     targetAreaAvailable = false;
                     break;
@@ -197,9 +190,9 @@
             {
                 TextArea dhArea = DynamicHintToArea(cachedPosition);
 
-                for (indexPTH = 0; indexPTH < colliders.Count; indexPTH++)
+                for (int i = 0; i < colliders.Count; i++)
                 {
-                    if (dhArea.HasIntersection(colliders[indexPTH]))
+                    if (dhArea.HasIntersection(colliders[i]))
                     {
                         targetAreaAvailable = false;
                         break;
@@ -230,9 +223,9 @@
                 TextArea dhArea = DynamicHintToArea(tuple);
 
                 targetAreaAvailable = true;
-                for (indexPTH = 0; indexPTH < colliders.Count; indexPTH++)
+                for (int i = 0; i < colliders.Count; i++)
                 {
-                    if (dhArea.HasIntersection(colliders[indexPTH]))
+                    if (dhArea.HasIntersection(colliders[i]))
                     {
                         targetAreaAvailable = false;
                         break;
@@ -328,11 +321,11 @@
                 }
             }
 
-            for (indexPTRT = 0; indexPTRT < lineList.Count; indexPTRT++)
+            for (int i = 0; i < lineList.Count; i++)
             {
-                vOffset -= lineList[indexPTRT].Height + hint.LineHeight; // Move y coordinate to the bottom of the line
+                vOffset -= lineList[i].Height + hint.LineHeight; // Move y coordinate to the bottom of the line
 
-                if (string.IsNullOrEmpty(lineList[indexPTRT].RawText))
+                if (string.IsNullOrEmpty(lineList[i].RawText))
                     continue;
 
                 if (hint.XCoordinate != 0)
@@ -341,7 +334,7 @@
                 if (vOffset != 0)
                     messageBuilder.AppendFormat("<voffset={0:0.#}>", vOffset); // Y coordinate
 
-                messageBuilder.Append(lineList[indexPTRT].RawText); // Content
+                messageBuilder.Append(lineList[i].RawText); // Content
 
                 if (vOffset != 0)
                     messageBuilder.Append("</voffset>"); // End Y coordinate
@@ -361,9 +354,10 @@
 
             // Skip if no tag
             bool needsModification = false;
-            for (indexRIT = 0; indexRIT < raw.Length; indexRIT++)
+            int i = 0;
+            for (; i < raw.Length; i++)
             {
-                char c = raw[indexRIT];
+                char c = raw[i];
                 if (c == '{' || c == '}')
                 {
                     needsModification = true;
@@ -371,10 +365,10 @@
                 }
 
                 if (c == '<' &&
-                    (StartsWithIgnoreCase(raw, indexRIT, "<line-height=") ||
-                     StartsWithIgnoreCase(raw, indexRIT, "<voffset=") ||
-                     StartsWithIgnoreCase(raw, indexRIT, "<pos=") ||
-                     StartsWithIgnoreCase(raw, indexRIT, "</voffset>")))
+                    (StartsWithIgnoreCase(raw, i, "<line-height=") ||
+                     StartsWithIgnoreCase(raw, i, "<voffset=") ||
+                     StartsWithIgnoreCase(raw, i, "<pos=") ||
+                     StartsWithIgnoreCase(raw, i, "</voffset>")))
                 {
                     needsModification = true;
                     break;
@@ -388,41 +382,42 @@
 
             int length = raw.Length;
 
-            while (indexRIT < length)
+            i = 0;
+            while (i < length)
             {
-                char c = raw[indexRIT];
+                char c = raw[i];
 
                 // Remove all { and } since {} are somehow not displayable
                 if (c == '{' || c == '}')
                 {
-                    indexRIT++;
+                    i++;
                     continue;
                 }
 
                 // Remove all illegal tags
                 if (c == '<')
                 {
-                    if (StartsWithIgnoreCase(raw, indexRIT, "<line-height=") ||
-                        StartsWithIgnoreCase(raw, indexRIT, "<voffset=") ||
-                        StartsWithIgnoreCase(raw, indexRIT, "<pos="))
+                    if (StartsWithIgnoreCase(raw, i, "<line-height=") ||
+                        StartsWithIgnoreCase(raw, i, "<voffset=") ||
+                        StartsWithIgnoreCase(raw, i, "<pos="))
                     {
-                        int closeIndex = raw.IndexOf('>', indexRIT);
+                        int closeIndex = raw.IndexOf('>', i);
                         if (closeIndex != -1)
                         {
-                            indexRIT = closeIndex + 1; // Skip the whole tag
+                            i = closeIndex + 1; // Skip the whole tag
                             continue;
                         }
                     }
-                    else if (StartsWithIgnoreCase(raw, indexRIT, "</voffset>"))
+                    else if (StartsWithIgnoreCase(raw, i, "</voffset>"))
                     {
-                        indexRIT += 10; // Skip "</voffset>"
+                        i += 10; // Skip "</voffset>"
                         continue;
                     }
                 }
 
                 // If not illegal, reserve the character
                 sb.Append(c);
-                indexRIT++;
+                i++;
             }
 
             string result = sb.ToString();
