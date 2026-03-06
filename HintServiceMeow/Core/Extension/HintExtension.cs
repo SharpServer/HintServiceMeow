@@ -1,4 +1,4 @@
-﻿namespace HintServiceMeow.Core.Extension
+namespace HintServiceMeow.Core.Extension
 {
     using System;
     using System.Runtime.CompilerServices;
@@ -6,6 +6,9 @@
     using System.Threading.Tasks;
     using HintServiceMeow.Core.Models.Hints;
 
+    /// <summary>
+    /// Provides extension methods for <see cref="AbstractHint"/> to schedule timed visibility changes.
+    /// </summary>
     public static class HintExtension
     {
         private static readonly object DictLock = new object();

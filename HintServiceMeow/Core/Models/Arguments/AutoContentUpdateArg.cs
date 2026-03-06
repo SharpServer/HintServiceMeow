@@ -1,9 +1,13 @@
-﻿namespace HintServiceMeow.Core.Models.Arguments
+namespace HintServiceMeow.Core.Models.Arguments
 {
     using System;
     using HintServiceMeow.Core.Models.Hints;
     using HintServiceMeow.Core.Utilities;
 
+    /// <summary>
+    /// Provides contextual data for an <see cref="AutoContent"/> text update callback,
+    /// including the owning hint, the player display, and configurable update timing.
+    /// </summary>
     public class AutoContentUpdateArg
     {
         internal AutoContentUpdateArg(AbstractHint hint, PlayerDisplay playerDisplay, TimeSpan defaultUpdateDelay)
@@ -14,8 +18,14 @@
             DefaultUpdateDelay = defaultUpdateDelay;
         }
 
+        /// <summary>
+        /// Gets the hint that owns this content update.
+        /// </summary>
         public AbstractHint Hint { get; }
 
+        /// <summary>
+        /// Gets the player display associated with this update.
+        /// </summary>
         public PlayerDisplay PlayerDisplay { get; }
 
         /// <summary>
@@ -23,6 +33,9 @@
         /// </summary>
         public TimeSpan NextUpdateDelay { get; set; }
 
+        /// <summary>
+        /// Gets or sets the default interval between auto-content update cycles.
+        /// </summary>
         public TimeSpan DefaultUpdateDelay { get; set; }
     }
 }

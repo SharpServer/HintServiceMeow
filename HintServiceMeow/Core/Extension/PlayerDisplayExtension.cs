@@ -1,4 +1,4 @@
-﻿namespace HintServiceMeow.Core.Extension
+namespace HintServiceMeow.Core.Extension
 {
     using System;
     using System.Runtime.CompilerServices;
@@ -7,6 +7,9 @@
     using HintServiceMeow.Core.Models.Hints;
     using HintServiceMeow.Core.Utilities;
 
+    /// <summary>
+    /// Provides extension methods for <see cref="PlayerDisplay"/> to schedule timed hint removal.
+    /// </summary>
     public static class PlayerDisplayExtension
     {
         private static readonly object DictLock = new object();

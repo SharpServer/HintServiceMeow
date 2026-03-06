@@ -1,13 +1,22 @@
-﻿namespace HintServiceMeow.Core.Utilities.Patch
+namespace HintServiceMeow.Core.Utilities.Patch
 {
     using System;
     using System.Reflection;
     using HarmonyLib;
 
+    /// <summary>
+    /// Provides methods to apply and remove Harmony patches used by HintServiceMeow.
+    /// </summary>
     public static class Patcher
     {
+        /// <summary>
+        /// Gets the active <see cref="HarmonyLib.Harmony"/> instance used to manage patches, or <see langword="null"/> if patching has not been applied.
+        /// </summary>
         public static Harmony? Harmony { get; private set; }
 
+        /// <summary>
+        /// Applies all Harmony patches required by HintServiceMeow, including patches for hint display and hint sending methods.
+        /// </summary>
         public static void Patch()
         {
             Harmony = new Harmony("HintServiceMeowHarmony" + Guid.NewGuid());
@@ -42,6 +51,9 @@
 #endif
         }
 
+        /// <summary>
+        /// Removes all Harmony patches applied by this patcher.
+        /// </summary>
         public static void Unpatch()
         {
             Harmony?.UnpatchAll();

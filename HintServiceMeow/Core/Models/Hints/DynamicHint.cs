@@ -1,7 +1,11 @@
-﻿namespace HintServiceMeow.Core.Models.Hints
+namespace HintServiceMeow.Core.Models.Hints
 {
     using HintServiceMeow.Core.Enum;
 
+    /// <summary>
+    /// Represents a hint that dynamically positions itself within defined boundaries on the player's screen,
+    /// avoiding overlap with other hints based on priority.
+    /// </summary>
     public class DynamicHint : AbstractHint
     {
         private float topBoundary = 0;
@@ -23,10 +27,17 @@
 
         #region Constructors
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DynamicHint"/> class with default values.
+        /// </summary>
         public DynamicHint()
         {
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DynamicHint"/> class by copying properties from an existing dynamic hint.
+        /// </summary>
+        /// <param name="hint">The dynamic hint whose properties are copied into this instance.</param>
         public DynamicHint(DynamicHint hint)
             : base(hint)
         {
@@ -280,6 +291,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets or sets the top margin in pixels between this hint and any hint placed above it.
+        /// </summary>
         public float TopMargin
         {
             get
@@ -314,6 +328,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets or sets the bottom margin in pixels between this hint and any hint placed below it.
+        /// </summary>
         public float BottomMargin
         {
             get
@@ -348,6 +365,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets or sets the left margin in pixels applied when this hint is positioned horizontally.
+        /// </summary>
         public float LeftMargin
         {
             get
@@ -382,6 +402,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets or sets the right margin in pixels applied when this hint is positioned horizontally.
+        /// </summary>
         public float RightMargin
         {
             get
@@ -453,6 +476,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets or sets the fallback strategy used when no valid display position is available.
+        /// </summary>
         public DynamicHintStrategy Strategy
         {
             get

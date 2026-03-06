@@ -1,7 +1,10 @@
-﻿namespace HintServiceMeow.Core.Models.Hints
+namespace HintServiceMeow.Core.Models.Hints
 {
     using HintServiceMeow.Core.Enum;
 
+    /// <summary>
+    /// Represents a hint displayed at a fixed position on the player's screen.
+    /// </summary>
     public class Hint : AbstractHint
     {
         private HintAlignment alignment = HintAlignment.Center;
@@ -11,10 +14,17 @@
         private float yCoordinate = 700;
 
         #region Constructors
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Hint"/> class with default values.
+        /// </summary>
         public Hint()
         {
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Hint"/> class by copying properties from an existing hint.
+        /// </summary>
+        /// <param name="hint">The hint whose properties are copied into this instance.</param>
         public Hint(Hint hint)
             : base(hint)
         {
@@ -164,7 +174,7 @@
         }
 
         /// <summary>
-        /// Gets or sets verticalAlign of the hint.
+        /// Gets or sets the vertical alignment reference point used when interpreting <see cref="YCoordinate"/>.
         /// </summary>
         public HintVerticalAlign YCoordinateAlign
         {
