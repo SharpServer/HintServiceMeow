@@ -1,5 +1,9 @@
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/H3TACT3Buh)
+[![GitHub Release](https://img.shields.io/github/v/release/MeowServer/HintServiceMeow)](https://github.com/MeowServer/HintServiceMeow/releases)
+
 # Introduction
-**HintServiceMeow (HSM)** is a framework that allows plugins to display text on a selected position on a player's screen. 
+**HintServiceMeow (HSM)** is a SCP: Secret Laboratory framework that allows plugins to display text on a selected position on a player's screen. 
 
 ---
 
@@ -8,8 +12,10 @@
 To install this plugin, follow these steps:
 
 1. Go to the [Release Page](https://github.com/MeowServer/HintServiceMeow/releases) and download the latest `HintServiceMeow.dll`. Then, paste it into your plugin folder.
-2. If you are using **PluginAPI** (the default API), place `Harmony.dll` into the **dependencies** folder.
+2. If you are using **LabAPI** (the default API), place `Harmony.dll` into the **dependencies** folder.
 3. Restart your server.
+4. Adjust config based on your need.
+5. Restart your server again to apply changes of config.
 
 ---
 
@@ -17,7 +23,6 @@ To install this plugin, follow these steps:
 
 Here are some useful resources to get you started:
 
-- [Features Introduction](Features.md)
 - [Getting Started](GettingStarted.md)
 - [Core Features](CoreFeatures.md)
 
