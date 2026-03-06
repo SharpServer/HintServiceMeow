@@ -1,4 +1,4 @@
-﻿namespace HintServiceMeow.Core.Models.Hints
+namespace HintServiceMeow.Core.Models.Hints
 {
     using System;
     using System.ComponentModel;
@@ -10,6 +10,10 @@
     using HintServiceMeow.Core.Utilities;
     using HintServiceMeow.Core.Utilities.Tools;
 
+    /// <summary>
+    /// Represents the base class for all hints displayed on a player's screen.
+    /// Provides common properties such as text content, font size, sync speed, and visibility.
+    /// </summary>
     public abstract class AbstractHint : INotifyPropertyChanged
     {
         private readonly Guid guid = Guid.NewGuid();
@@ -30,10 +34,17 @@
 
         #region Constructors
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AbstractHint"/> class with default values.
+        /// </summary>
         protected AbstractHint()
         {
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AbstractHint"/> class by copying properties from an existing hint.
+        /// </summary>
+        /// <param name="hint">The hint whose properties are copied into this instance.</param>
         protected AbstractHint(AbstractHint hint)
         {
             Lock.EnterWriteLock();
@@ -54,10 +65,16 @@
         #endregion
 
         #region Events
+        /// <summary>
+        /// Occurs when a property value changes.
+        /// </summary>
         public event PropertyChangedEventHandler? PropertyChanged;
         #endregion
 
         #region Properties
+        /// <summary>
+        /// Gets or sets the update analyser used to track and estimate hint update timing.
+        /// </summary>
         public IUpdateAnalyser UpdateAnalyser
         {
             get
@@ -87,6 +104,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets the unique identifier for this hint instance.
+        /// </summary>
         public Guid Guid
         {
             get
@@ -103,6 +123,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets or sets the logical identifier used to group or retrieve this hint.
+        /// </summary>
         public string Id
         {
             get
@@ -132,6 +155,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets or sets the synchronization speed that controls how quickly this hint's updates are sent to the display.
+        /// </summary>
         public HintSyncSpeed SyncSpeed
         {
             get
@@ -166,6 +192,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets or sets the font size of the hint text.
+        /// </summary>
         public int FontSize
         {
             get
@@ -200,6 +229,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets or sets the line height multiplier for the hint text.
+        /// </summary>
         public float LineHeight
         {
             get
@@ -234,6 +266,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets or sets the content displayed by this hint.
+        /// </summary>
         public AbstractHintContent Content
         {
             get
@@ -271,6 +306,10 @@
             }
         }
 
+        /// <summary>
+        /// Gets or sets the plain text of this hint when the content is a <see cref="StringContent"/>.
+        /// Returns <see langword="null"/> if the current content is not a <see cref="StringContent"/>.
+        /// </summary>
         public string? Text
         {
             get
@@ -320,6 +359,11 @@
             }
         }
 
+        /// <summary>
+        /// Gets or sets the auto-text handler used to dynamically generate hint content.
+        /// Setting this property replaces the current content with an <see cref="AutoContent"/> instance.
+        /// Returns <see langword="null"/> if the current content is not an <see cref="AutoContent"/>.
+        /// </summary>
         public AutoContent.TextUpdateHandler? AutoText
         {
             get
@@ -358,6 +402,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets or sets a value indicating whether this hint is hidden from the player's display.
+        /// </summary>
         public bool Hide
         {
             get
@@ -392,11 +439,18 @@
             }
         }
 
+        /// <summary>
+        /// Gets the reader/writer lock used to synchronize access to this hint's fields.
+        /// </summary>
         protected ReaderWriterLockSlim Lock { get; } = new(LockRecursionPolicy.SupportsRecursion);
         #endregion
 
         #region Methods
 
+        /// <summary>
+        /// Attempts to update the hint content in response to an update-available event.
+        /// </summary>
+        /// <param name="ev">The event arguments containing the player display context.</param>
         public virtual void TryUpdateHint(UpdateAvailableEventArg ev)
         {
             Content.TryUpdate(new ContentUpdateArg(this, ev.PlayerDisplay));
@@ -425,6 +479,10 @@
             this.content = null!;
         }
 
+        /// <summary>
+        /// Raises the <see cref="PropertyChanged"/> event and notifies the update analyser of a change.
+        /// </summary>
+        /// <param name="argumentName">The name of the property that changed.</param>
         protected virtual void OnHintUpdated(string argumentName)
         {
             analyser.OnUpdate();

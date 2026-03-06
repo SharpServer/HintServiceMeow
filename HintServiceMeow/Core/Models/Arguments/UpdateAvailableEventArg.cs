@@ -1,9 +1,9 @@
-﻿namespace HintServiceMeow.Core.Models.Arguments
+namespace HintServiceMeow.Core.Models.Arguments
 {
     using HintServiceMeow.Core.Utilities;
 
     /// <summary>
-    /// Argument for UpdateAvailable Event.
+    /// Provides data for the update-available event raised by a <see cref="PlayerDisplay"/>.
     /// </summary>
     public class UpdateAvailableEventArg
     {
@@ -12,6 +12,9 @@
             PlayerDisplay = playerDisplay;
         }
 
+        /// <summary>
+        /// Gets or sets the player display that is ready for a hint update.
+        /// </summary>
         public PlayerDisplay PlayerDisplay { get; set; }
     }
 }

@@ -1,4 +1,4 @@
-﻿namespace HintServiceMeow.Core.Models
+namespace HintServiceMeow.Core.Models
 {
     using System;
     using System.Collections.Generic;
@@ -18,8 +18,14 @@
         private IReadOnlyList<IReadOnlyList<AbstractHint>>? allGroupsCache;
         private IReadOnlyList<AbstractHint>? allHintsCache;
 
+        /// <summary>
+        /// Occurs when the hint collection is modified (hints added, removed, or cleared).
+        /// </summary>
         public event NotifyCollectionChangedEventHandler? CollectionChanged;
 
+        /// <summary>
+        /// Gets a read-only list of all hint groups, where each group corresponds to a registered assembly.
+        /// </summary>
         public IReadOnlyList<IReadOnlyList<AbstractHint>> AllGroups
         {
             get
@@ -34,6 +40,9 @@
             }
         }
 
+        /// <summary>
+        /// Gets a read-only flat list of all hints across all groups.
+        /// </summary>
         public IReadOnlyList<AbstractHint> AllHints
         {
             get
@@ -48,6 +57,11 @@
             }
         }
 
+        /// <summary>
+        /// Retrieves hints belonging to the specified assembly, or all hints if <paramref name="assemblyName"/> is <see langword="null"/>.
+        /// </summary>
+        /// <param name="assemblyName">The assembly name used to filter hints, or <see langword="null"/> to retrieve all hints.</param>
+        /// <returns>A read-only list of matching hints.</returns>
         public IReadOnlyList<AbstractHint> GetHints(string? assemblyName)
         {
             lock (collectionLock)
@@ -62,6 +76,12 @@
             }
         }
 
+        /// <summary>
+        /// Retrieves hints belonging to the specified assembly that satisfy the given predicate.
+        /// </summary>
+        /// <param name="assemblyName">The assembly name used to filter hints.</param>
+        /// <param name="predicate">A function to further filter hints within the assembly group.</param>
+        /// <returns>A read-only list of hints that match both the assembly name and the predicate.</returns>
         public IReadOnlyList<AbstractHint> GetHints(string assemblyName, Func<AbstractHint, bool> predicate)
         {
             return GetHints(assemblyName).Where(predicate).ToList().AsReadOnly();

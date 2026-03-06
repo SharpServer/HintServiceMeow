@@ -1,5 +1,8 @@
 ﻿namespace HintServiceMeow.Core.Enum
 {
+    /// <summary>
+    /// Specifies how scheduled action times are resolved when a new delay is applied.
+    /// </summary>
     public enum DelayType
     {
         /// <summary>
