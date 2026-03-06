@@ -1,3 +1,5 @@
+Click [here](/Docs/English/README.md) to go back to read me
+
 ## Getting Started
 ### Set up dependencies
 1. Create your C# project
@@ -92,8 +94,10 @@ ui.CommonHint.ShowOtherHint("The server is starting!");
 ```
 ---
 The above code blocks will create an UI like this:
-![The hint view](Images/GettingStartedExample.jpg)
+![Hint view](Images/GettingStartedExample.jpg)
 Labeled:
-![The hitn view labeled](Images/GettingStartedExampleLabeled.jpg)
+![Hint view labeled](Images/GettingStartedExampleLabeled.jpg)
 
 Read [Core Features](CoreFeatures.md) to learn more
+
+Click [here](/Docs/English/README.md) to go back to read me

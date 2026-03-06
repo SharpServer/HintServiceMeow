@@ -1,3 +1,5 @@
+Click [here](/Docs/English/README.md) to go back to read me
+
 # Core Features
 
 This documentation covers the public API of HintServiceMeow, organized by functional module.
@@ -6,19 +8,25 @@ This documentation covers the public API of HintServiceMeow, organized by functi
 
 ## Table of Contents
 
-- [Hint Models](#hint-models)
-  - [AbstractHint](#abstracthint)
-  - [Hint](#hint)
-  - [DynamicHint](#dynamichint)
-- [PlayerDisplay](#playerdisplay)
-- [UI Layer](#ui-layer)
-  - [PlayerUI](#playerui)
-  - [CommonHint](#commonhint)
-- [Extension Methods](#extension-methods)
-- [Hint Content](#hint-content)
-  - [AbstractHintContent](#abstracthintcontent)
-  - [StringContent](#stringcontent)
-  - [AutoContent](#autocontent)
+- [Core Features](#core-features)
+  - [Table of Contents](#table-of-contents)
+  - [Hint Models](#hint-models)
+    - [AbstractHint](#abstracthint)
+    - [Hint](#hint)
+    - [DynamicHint](#dynamichint)
+  - [PlayerDisplay](#playerdisplay)
+  - [UI Layer](#ui-layer)
+    - [PlayerUI](#playerui)
+    - [CommonHint](#commonhint)
+  - [Extension Methods](#extension-methods)
+    - [AbstractHint Extensions](#abstracthint-extensions)
+    - [PlayerDisplay Extensions](#playerdisplay-extensions)
+    - [NW Player Extensions](#nw-player-extensions)
+    - [EXILED Player Extensions](#exiled-player-extensions)
+  - [Hint Content](#hint-content)
+    - [AbstractHintContent](#abstracthintcontent)
+    - [StringContent](#stringcontent)
+    - [AutoContent](#autocontent)
 
 ---
 
@@ -472,3 +480,5 @@ hint.AutoText = (ev) =>
     return $"Time: {DateTime.Now:HH:mm:ss}";
 };
 ```
+
+Click [here](/Docs/English/README.md) to go back to read me
