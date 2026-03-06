@@ -4,7 +4,7 @@ namespace HintServiceMeow.Core.Models.Hints
 
     /// <summary>
     /// Represents a hint that dynamically positions itself within defined boundaries on the player's screen,
-    /// avoiding overlap with other hints based on priority.
+    /// avoiding overlap with other hints.
     /// </summary>
     public class DynamicHint : AbstractHint
     {
