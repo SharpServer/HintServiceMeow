@@ -3,7 +3,7 @@ Click [here](/Docs/English/README.md) to go back to read me
 ## Getting Started
 ### Set up dependencies
 1. Create your C# project
-2. Include the dll file downloaded from release into your project's dependecies
+2. Include the dll file downloaded from release into your project's dependencies
 ### Show your first hint
 The following code blocks show how to use frequently used features of HSM.
 
@@ -49,7 +49,7 @@ player.AddHint(hint2); // This is equivalent to playerDisplay.AddHint(hint);
 
 ```
 ---
-Use `NextUpdateDelay` to set the customize update reate of your AutoText.
+Use `NextUpdateDelay` to set the custom update rate of your AutoText.
 
 Use `PlayerDisplay::ShowHint(Hint, float)` to show a hint for a certain time.
 ```CSharp
@@ -66,7 +66,7 @@ Hint hint3 = new Hint()
 };
 
 // If you only want to show a hint temporarily, you can use ShowHint
-playerDisplay.ShowHint(hint3, 12f); // This show a hint for 12 second, then hide it.
+playerDisplay.ShowHint(hint3, 12f); // This shows a hint for 12 seconds, then hide it.
 
 ```
 ---
@@ -83,7 +83,7 @@ playerDisplay.AddHint(dynamicHint);
 
 ```
 ---
-Use CommonHint to quickly develop your ui.
+Use CommonHint to quickly develop your UI.
 ```CSharp
 // PlayerUI::CommonHint is a set of preset hints that help you to show hints easily
 PlayerUI ui = PlayerUI.Get(player);
