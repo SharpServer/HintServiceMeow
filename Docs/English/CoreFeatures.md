@@ -350,6 +350,26 @@ Extension methods for `LabApi.Features.Wrappers.Player`.
 | RemoveHint | Core | `void` | Removes a hint from the player's display |
 | GetPlayerUi | UI | `PlayerUI` | Gets the player's PlayerUI instance |
 
+```csharp
+// Using NW player extensions (LabApi)
+LabApi.Features.Wrappers.Player player = ...;
+
+// Get the PlayerDisplay and add a hint directly on the player object
+var hint = new Hint { Text = "Hello from NW extension!", YCoordinate = 500 };
+player.AddHint(hint);
+
+// Later, remove it
+player.RemoveHint(hint);
+
+// Access PlayerDisplay for more advanced operations
+PlayerDisplay pd = player.GetPlayerDisplay();
+pd.ShowHint(new Hint { Text = "Temporary!" }, duration: 3f);
+
+// Access PlayerUI and CommonHint
+PlayerUI ui = player.GetPlayerUi();
+ui.CommonHint.ShowRoleHint("SCP-096", new[] { "Sit and cry", "Chase targets" });
+```
+
 ### EXILED Player Extensions
 
 > Namespace: `HintServiceMeow.Core.Extension` / `HintServiceMeow.UI.Extension`
@@ -362,6 +382,26 @@ Extension methods for `Exiled.API.Features.Player`. Only available in EXILED bui
 | AddHint | Core | `void` | Adds a hint to the player's display |
 | RemoveHint | Core | `void` | Removes a hint from the player's display |
 | GetPlayerUi | UI | `PlayerUI` | Gets the player's PlayerUI instance |
+
+```csharp
+// Using EXILED player extensions
+Exiled.API.Features.Player player = ...;
+
+// Get the PlayerDisplay and add a hint directly on the player object
+var hint = new Hint { Text = "Hello from EXILED extension!", YCoordinate = 500 };
+player.AddHint(hint);
+
+// Later, remove it
+player.RemoveHint(hint);
+
+// Access PlayerDisplay for more advanced operations
+PlayerDisplay pd = player.GetPlayerDisplay();
+pd.ShowHint(new Hint { Text = "Temporary!" }, duration: 3f);
+
+// Access PlayerUI and CommonHint
+PlayerUI ui = player.GetPlayerUi();
+ui.CommonHint.ShowItemHint("O5 Keycard", "Grants access to all areas");
+```
 
 ---
 
