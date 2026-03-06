@@ -1,7 +1,8 @@
-## Language / 语言 / Língua
+## Language / 语言 / Língua / Язык
 ### [English](Docs/English/README.md)
 ### [中文](Docs/SimplifiedChinese/README.md)
 ### [Português](Docs/Brazilian//README.md)
+### [Русский](Docs/Russian/README.md)
 
 ---
 
