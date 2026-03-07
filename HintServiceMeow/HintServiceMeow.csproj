@@ -43,7 +43,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="ExMod.Exiled" Version="9.13.1" />
     <PackageReference Include="Northwood.LabAPI" Version="1.1.5" IncludeAssets="compile" PrivateAssets="all" />
     <PackageReference Include="Lib.Harmony" Version="2.4.2" IncludeAssets="compile" PrivateAssets="all" />
     <PackageReference Include="YamlDotNet" Version="16.3.0" IncludeAssets="compile" PrivateAssets="all" />
@@ -51,13 +50,16 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>..\Dependencies\Assembly-CSharp.dll</HintPath>
+    </Reference>
     <Reference Include="Assembly-CSharp-firstpass">
       <HintPath>..\Dependencies\Assembly-CSharp-firstpass.dll</HintPath>
     </Reference>
     <Reference Include="CommandSystem.Core" HintPath="..\Dependencies\CommandSystem.Core.dll" Private="False" />
-    <Reference Include="Mirror">
-      <HintPath>..\Dependencies\Mirror.dll</HintPath>
-    </Reference>
+    <Reference Include="Exiled.API" HintPath="..\Dependencies\Exiled.API.dll" Private="False" />
+    <Reference Include="Exiled.Events" HintPath="..\Dependencies\Exiled.Events.dll" Private="False" />
+    <Reference Include="Mirror" HintPath="..\Dependencies\Mirror.dll" Private="False" />
     <Reference Include="UnityEngine.CoreModule" HintPath="..\Dependencies\UnityEngine.CoreModule.dll" Private="False" />
     <Reference Include="System.IO.Compression" Private="False" />
   </ItemGroup>
