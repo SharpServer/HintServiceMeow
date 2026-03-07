@@ -33,7 +33,7 @@
 - 在 `PlayerDisplay` 和 `CompatibilityAdaptor` 中将 `MEC` 替换为 `ICoroutine` 以消除 Unity 依赖。
 - 使 `RichTextParserPool` 在返回 `RichTextParser` 前清除状态。
 - 使 `HintParser` 独立于 Mirror。
-- 将 `HintParser` 的性能提升了 19%。
+- 提升了 `HintParser` 的性能。执行速度最高提升了 32%，内存分配减少了高达 76%。
 - 改进了 `HintServiceExample` 以提供更详细和全面的演示。
 - 改进了 `HintExtension` 和 `PlayerDisplayExtension` 的性能。
 

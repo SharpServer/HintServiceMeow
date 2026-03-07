@@ -33,7 +33,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Replaced `MEC` with `ICoroutine` in `PlayerDisplay` and `CompatibilityAdaptor` to remove the Unity dependency.
 - Made `RichTextParserPool` to clear status before returning a `RichTextParser`.
 - Made `HintParser` independent of Mirror.
-- Improved `HintParser`'s performance by 19%.
+- Improved `HintParser`'s performance. Achieved up to 32% faster execution and reducing memory allocation by up to 76%.
 - Improved `HintServiceExample` for a more detailed and comprehensive demonstration.
 - Improved performance of `HintExtension` and `PlayerDisplayExtension`.
 
