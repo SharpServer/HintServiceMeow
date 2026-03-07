@@ -1,5 +1,9 @@
 namespace HintServiceMeow.Core.Extension
 {
+    using System.Reflection;
+    using HintServiceMeow.Core.Models.Hints;
+    using HintServiceMeow.Core.Utilities;
+
 #if EXILED
     /// <summary>
     /// Provides extension methods for Exiled <c>Player</c> to manage hint display via <see cref="PlayerDisplay"/>.

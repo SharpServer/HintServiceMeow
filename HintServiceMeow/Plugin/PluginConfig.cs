@@ -2,6 +2,9 @@
 {
     using System.Collections.Generic;
     using System.ComponentModel;
+#if EXILED
+    using Exiled.API.Interfaces;
+#endif
 
 #if EXILED
     internal class PluginConfig : IConfig

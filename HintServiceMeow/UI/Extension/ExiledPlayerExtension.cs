@@ -1,5 +1,7 @@
 namespace HintServiceMeow.UI.Extension
 {
+    using HintServiceMeow.UI.Utilities;
+
 #if EXILED
     /// <summary>
     /// Provides extension methods for Exiled <c>Player</c> to retrieve the associated <see cref="PlayerUI"/>.
