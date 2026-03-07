@@ -27,7 +27,7 @@
 
         public override string Author => "MeowServer";
 
-        public override Version Version => new(5, 4, 4);
+        public override Version Version => new(5, 5, 0);
 
         public override Version RequiredExiledVersion => new(9, 6, 0);
 
@@ -37,7 +37,7 @@
 
         public override string Author => "MeowServer";
 
-        public override Version Version => new(5, 4, 4);
+        public override Version Version => new(5, 5, 0);
 
         public override Version RequiredApiVersion => new(LabApiProperties.CompiledVersion);
 
