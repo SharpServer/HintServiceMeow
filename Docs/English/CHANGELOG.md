@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [5.5.0]
+
 ### Fixed
 - A bug that could cause `PlayerDisplay` to send hint after it was destructed.
 - A bug that caused `HintCollection` not to remove key from the collection when its corresponding `List<Hint>` was empty.

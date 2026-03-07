@@ -10,6 +10,10 @@ O formato é baseado em [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Não lançado]
 
+---
+
+## [5.5.0]
+
 ### Corrigido
 - Um bug que poderia causar o envio de hints pelo `PlayerDisplay` após ser destruído.
 - Um bug que causava o `HintCollection` não remover a chave da coleção quando sua `List<Hint>` correspondente estava vazia.
