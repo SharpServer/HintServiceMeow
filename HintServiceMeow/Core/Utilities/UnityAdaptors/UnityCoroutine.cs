@@ -5,7 +5,7 @@
 
     internal class UnityCoroutine : ICoroutine
     {
-        private CoroutineHandle handle;
+        private readonly CoroutineHandle handle;
 
         internal UnityCoroutine(CoroutineHandle handle)
         {

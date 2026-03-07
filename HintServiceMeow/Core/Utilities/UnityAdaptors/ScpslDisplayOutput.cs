@@ -6,14 +6,9 @@
     using HintServiceMeow.Core.Utilities.Tools;
     using Mirror;
 
-    internal class ScpslDisplayOutput : IDisplayOutput
+    internal class ScpslDisplayOutput(NetworkConnection connectionToPlayer) : IDisplayOutput
     {
-        private readonly NetworkConnection? connectionToPlayer;
-
-        public ScpslDisplayOutput(NetworkConnection connectionToPlayer)
-        {
-            this.connectionToPlayer = connectionToPlayer ?? throw new ArgumentNullException(nameof(connectionToPlayer), "NetworkConnection cannot be null");
-        }
+        private readonly NetworkConnection? connectionToPlayer = connectionToPlayer;
 
         public void ShowHint(DisplayOutputArg ev)
         {

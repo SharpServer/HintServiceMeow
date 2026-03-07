@@ -8,7 +8,7 @@
     {
         private readonly object cacheLock = new();
 
-        private readonly Dictionary<TKey, CacheItem> cache = new();
+        private readonly Dictionary<TKey, CacheItem> cache = [];
         private readonly CacheItem removeQueueHead;
         private readonly int maxSize;
 
@@ -113,17 +113,11 @@
             item.PrevItem.NextItem = item;
         }
 
-        private class CacheItem
+        private class CacheItem(TKey key, TItem data)
         {
-            public CacheItem(TKey key, TItem data)
-            {
-                Key = key;
-                Data = data;
-            }
+            public TKey Key { get; } = key;
 
-            public TKey Key { get; }
-
-            public TItem Data { get; }
+            public TItem Data { get; } = data;
 
             public CacheItem PrevItem { get; set; } = null!;
 

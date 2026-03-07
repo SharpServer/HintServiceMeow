@@ -34,6 +34,7 @@ namespace HintServiceMeow.Core.Models.HintContent
         /// Represents a method that returns the updated hint text given the current update arguments.
         /// </summary>
         /// <param name="ev">The arguments providing context for the text update, including the owning hint and timing information.</param>
+        /// <returns>The content of the hint.</returns>
         public delegate string TextUpdateHandler(AutoContentUpdateArg ev);
 
         /// <summary>
