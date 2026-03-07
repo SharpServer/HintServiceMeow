@@ -1,68 +1,83 @@
-﻿using HintServiceMeow.Core.Enum;
-using HintServiceMeow.Core.Interface;
-using HintServiceMeow.Core.Models.Arguments;
-using HintServiceMeow.Core.Models.HintContent;
-using HintServiceMeow.Core.Utilities;
-using HintServiceMeow.Core.Utilities.Tools;
-using System;
-using System.ComponentModel;
-using System.Threading;
-
 namespace HintServiceMeow.Core.Models.Hints
 {
+    using System;
+    using System.ComponentModel;
+    using System.Threading;
+    using HintServiceMeow.Core.Enum;
+    using HintServiceMeow.Core.Interface;
+    using HintServiceMeow.Core.Models.Arguments;
+    using HintServiceMeow.Core.Models.HintContent;
+    using HintServiceMeow.Core.Utilities;
+    using HintServiceMeow.Core.Utilities.Tools;
+
+    /// <summary>
+    /// Represents the base class for all hints displayed on a player's screen.
+    /// Provides common properties such as text content, font size, sync speed, and visibility.
+    /// </summary>
     public abstract class AbstractHint : INotifyPropertyChanged
     {
-        protected ReaderWriterLockSlim Lock = new(LockRecursionPolicy.SupportsRecursion);
+        private readonly Guid guid = Guid.NewGuid();
 
-        private IUpdateAnalyser _analyser = new UpdateAnalyzer();
+        private IUpdateAnalyser analyser = new UpdateAnalyzer();
 
-        private readonly Guid _guid = Guid.NewGuid();
-        private string _id = string.Empty;
+        private string id = string.Empty;
 
-        private HintSyncSpeed _syncSpeed = HintSyncSpeed.Normal;
+        private HintSyncSpeed syncSpeed = HintSyncSpeed.Normal;
 
-        private int _fontSize = 20;
+        private int fontSize = 20;
 
-        private float _lineHeight = 0;
+        private float lineHeight;
 
-        private AbstractHintContent _content = new StringContent("");
+        private AbstractHintContent content = new StringContent(string.Empty);
 
-        private bool _hide = false;
-
-        #region Events
-
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        #endregion
+        private bool hide;
 
         #region Constructors
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AbstractHint"/> class with default values.
+        /// </summary>
         protected AbstractHint()
         {
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AbstractHint"/> class by copying properties from an existing hint.
+        /// </summary>
+        /// <param name="hint">The hint whose properties are copied into this instance.</param>
         protected AbstractHint(AbstractHint hint)
         {
             Lock.EnterWriteLock();
             try
             {
-                this._id = hint._id;
-                this._syncSpeed = hint._syncSpeed;
-                this._fontSize = hint._fontSize;
-                this._lineHeight = hint._lineHeight;
-                this._content = hint._content;
-                this._hide = hint._hide;
+                id = hint.id;
+                syncSpeed = hint.syncSpeed;
+                fontSize = hint.fontSize;
+                lineHeight = hint.lineHeight;
+                content = hint.content;
+                hide = hint.hide;
             }
             finally
             {
                 Lock.ExitWriteLock();
             }
         }
+        #endregion
+
+        #region Events
+
+        /// <summary>
+        /// Occurs when a property value changes.
+        /// </summary>
+        public event PropertyChangedEventHandler? PropertyChanged;
 
         #endregion
 
         #region Properties
 
+        /// <summary>
+        /// Gets or sets the update analyser used to track and estimate hint update timing.
+        /// </summary>
         public IUpdateAnalyser UpdateAnalyser
         {
             get
@@ -70,19 +85,20 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _analyser;
+                    return analyser;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    _analyser = value;
+                    analyser = value;
                 }
                 finally
                 {
@@ -91,6 +107,9 @@ namespace HintServiceMeow.Core.Models.Hints
             }
         }
 
+        /// <summary>
+        /// Gets the unique identifier for this hint instance.
+        /// </summary>
         public Guid Guid
         {
             get
@@ -98,7 +117,7 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _guid;
+                    return guid;
                 }
                 finally
                 {
@@ -107,6 +126,9 @@ namespace HintServiceMeow.Core.Models.Hints
             }
         }
 
+        /// <summary>
+        /// Gets or sets the logical identifier used to group or retrieve this hint.
+        /// </summary>
         public string Id
         {
             get
@@ -114,19 +136,20 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _id;
+                    return id;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    _id = value;
+                    id = value;
                 }
                 finally
                 {
@@ -135,6 +158,9 @@ namespace HintServiceMeow.Core.Models.Hints
             }
         }
 
+        /// <summary>
+        /// Gets or sets the synchronization speed that controls how quickly this hint's updates are sent to the display.
+        /// </summary>
         public HintSyncSpeed SyncSpeed
         {
             get
@@ -142,31 +168,36 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _syncSpeed;
+                    return syncSpeed;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    if (_syncSpeed == value)
+                    if (syncSpeed == value)
                         return;
 
-                    _syncSpeed = value;
-                    OnHintUpdated("SyncSpeed");
+                    syncSpeed = value;
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(SyncSpeed));
             }
         }
 
+        /// <summary>
+        /// Gets or sets the font size of the hint text.
+        /// </summary>
         public int FontSize
         {
             get
@@ -174,31 +205,36 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _fontSize;
+                    return fontSize;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    if (_fontSize == value)
+                    if (fontSize == value)
                         return;
 
-                    _fontSize = value;
-                    OnHintUpdated("FontSize");
+                    fontSize = value;
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(FontSize));
             }
         }
 
+        /// <summary>
+        /// Gets or sets the line height multiplier for the hint text.
+        /// </summary>
         public float LineHeight
         {
             get
@@ -206,31 +242,36 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _lineHeight;
+                    return lineHeight;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    if (_lineHeight.Equals(value))
+                    if (lineHeight.Equals(value))
                         return;
 
-                    _lineHeight = value;
-                    OnHintUpdated("LineHeight");
+                    lineHeight = value;
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(LineHeight));
             }
         }
 
+        /// <summary>
+        /// Gets or sets the content displayed by this hint.
+        /// </summary>
         public AbstractHintContent Content
         {
             get
@@ -238,33 +279,41 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _content;
+                    return content;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    if (_content == value)
+                    if (content == value)
                         return;
 
-                    _content = value;
-                    _content.ContentUpdated += () => OnHintUpdated("Content");
-                    OnHintUpdated("Content");
+                    Content.ContentUpdated -= OnContentUpdate;
+
+                    content = value;
+                    content.ContentUpdated += OnContentUpdate;
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(Content));
             }
         }
 
-        public string Text
+        /// <summary>
+        /// Gets or sets the plain text of this hint when the content is a <see cref="StringContent"/>.
+        /// Returns <see langword="null"/> if the current content is not a <see cref="StringContent"/>.
+        /// </summary>
+        public string? Text
         {
             get
             {
@@ -283,6 +332,7 @@ namespace HintServiceMeow.Core.Models.Hints
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
@@ -294,10 +344,10 @@ namespace HintServiceMeow.Core.Models.Hints
                     }
                     else
                     {
-                        Content = new StringContent(value);
+                        content.ContentUpdated -= OnContentUpdate;
+                        content = new StringContent(value);
+                        content.ContentUpdated += OnContentUpdate;
                     }
-
-                    OnHintUpdated("Text");
                 }
                 catch (Exception ex)
                 {
@@ -307,19 +357,26 @@ namespace HintServiceMeow.Core.Models.Hints
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(Text));
             }
         }
 
-        public AutoContent.TextUpdateHandler AutoText
+        /// <summary>
+        /// Gets or sets the auto-text handler used to dynamically generate hint content.
+        /// Setting this property replaces the current content with an <see cref="AutoContent"/> instance.
+        /// Returns <see langword="null"/> if the current content is not an <see cref="AutoContent"/>.
+        /// </summary>
+        public AutoContent.TextUpdateHandler? AutoText
         {
             get
             {
                 Lock.EnterReadLock();
                 try
                 {
-                    if (Content is AutoContent content)
+                    if (Content is AutoContent autoContent)
                     {
-                        return content.AutoText;
+                        return autoContent.AutoText;
                     }
 
                     return null;
@@ -329,21 +386,28 @@ namespace HintServiceMeow.Core.Models.Hints
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    Content = new AutoContent(value);
-                    OnHintUpdated("AutoText");
+                    content.ContentUpdated -= OnContentUpdate;
+                    content = new AutoContent(value);
+                    content.ContentUpdated += OnContentUpdate;
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(AutoText));
             }
         }
 
+        /// <summary>
+        /// Gets or sets a value indicating whether this hint is hidden from the player's display.
+        /// </summary>
         public bool Hide
         {
             get
@@ -351,47 +415,88 @@ namespace HintServiceMeow.Core.Models.Hints
                 Lock.EnterReadLock();
                 try
                 {
-                    return _hide;
+                    return hide;
                 }
                 finally
                 {
                     Lock.ExitReadLock();
                 }
             }
+
             set
             {
                 Lock.EnterWriteLock();
                 try
                 {
-                    if (_hide == value)
+                    if (hide == value)
                         return;
 
-                    _hide = value;
-                    OnHintUpdated("Hide");
+                    hide = value;
                 }
                 finally
                 {
                     Lock.ExitWriteLock();
                 }
+
+                OnHintUpdated(nameof(Hide));
             }
         }
 
+        /// <summary>
+        /// Gets the reader/writer lock used to synchronize access to this hint's fields.
+        /// </summary>
+        protected ReaderWriterLockSlim Lock { get; } = new(LockRecursionPolicy.SupportsRecursion);
         #endregion
 
         #region Methods
 
+        /// <summary>
+        /// Attempts to update the hint content in response to an update-available event.
+        /// </summary>
+        /// <param name="ev">The event arguments containing the player display context.</param>
         public virtual void TryUpdateHint(UpdateAvailableEventArg ev)
         {
             Content.TryUpdate(new ContentUpdateArg(this, ev.PlayerDisplay));
         }
 
+        /// <summary>
+        /// Not thread friendly, should only be used in pool.
+        /// </summary>
+        /// <param name="copyFrom">Copy parameter from.</param>
+        internal void CopyFieldsFrom(AbstractHint copyFrom)
+        {
+            this.id = copyFrom.id;
+            this.syncSpeed = copyFrom.syncSpeed;
+            this.fontSize = copyFrom.fontSize;
+            this.lineHeight = copyFrom.lineHeight;
+            this.content = copyFrom.content;
+            this.hide = copyFrom.hide;
+        }
+
+        /// <summary>
+        /// Not thread friendly, should only be used in pool.
+        /// </summary>
+        internal void ResetFields()
+        {
+            this.id = string.Empty;
+            this.content = null!;
+        }
+
+        /// <summary>
+        /// Raises the <see cref="PropertyChanged"/> event and notifies the update analyser of a change.
+        /// </summary>
+        /// <param name="argumentName">The name of the property that changed.</param>
         protected virtual void OnHintUpdated(string argumentName)
         {
-            _analyser.OnUpdate();
+            analyser.OnUpdate();
 
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(argumentName));
         }
 
+        private void OnContentUpdate()
+        {
+            OnHintUpdated(nameof(Content));
+        }
         #endregion
     }
 }

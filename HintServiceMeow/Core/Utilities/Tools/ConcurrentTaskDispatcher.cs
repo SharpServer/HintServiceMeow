@@ -1,29 +1,53 @@
-﻿using HintServiceMeow.Core.Interface;
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-
-namespace HintServiceMeow.Core.Utilities.Tools
+﻿namespace HintServiceMeow.Core.Utilities.Tools
 {
-    internal class ConcurrentTaskDispatcher: IConcurrentTaskDispatcher
-    {
-        public static IConcurrentTaskDispatcher Instance { get; private set; } = new ConcurrentTaskDispatcher(Environment.ProcessorCount - 1);
+    using System;
+    using System.Collections.Concurrent;
+    using System.Collections.Generic;
+    using System.Threading.Tasks;
+    using HintServiceMeow.Core.Interface;
 
-        private readonly BlockingCollection<ITaskPatch> _taskQueue = new();
-        private readonly List<Task> _workers = new();
+    internal class ConcurrentTaskDispatcher : IConcurrentTaskDispatcher
+    {
+        private readonly BlockingCollection<ITaskPatch> taskQueue = new();
+        private readonly List<Task> workers = [];
 
         public ConcurrentTaskDispatcher(int workerCount)
         {
             for (; workerCount > 0; workerCount--)
             {
-                _workers.Add(Task.Run(WorkerMethod));
+                workers.Add(Task.Run(WorkerMethod));
             }
+        }
+
+        private interface ITaskPatch
+        {
+            Task ExecuteAsync();
+        }
+
+        public static IConcurrentTaskDispatcher Instance { get; private set; } = new ConcurrentTaskDispatcher(Environment.ProcessorCount - 1);
+
+        public void Enqueue(Func<Task> task)
+        {
+            if (task == null)
+                throw new ArgumentNullException(nameof(task));
+
+            TaskPatch wrapper = new TaskPatch(task);
+            taskQueue.Add(wrapper);
+        }
+
+        public Task<T> Enqueue<T>(Func<Task<T>> task)
+        {
+            if (task == null)
+                throw new ArgumentNullException(nameof(task));
+
+            TaskPatch<T> wrapper = new TaskPatch<T>(task);
+            taskQueue.Add(wrapper);
+            return wrapper.Completion.Task;
         }
 
         private async Task WorkerMethod()
         {
-            foreach (var task in _taskQueue.GetConsumingEnumerable())
+            foreach (ITaskPatch? task in taskQueue.GetConsumingEnumerable())
             {
                 try
                 {
@@ -36,46 +60,23 @@ namespace HintServiceMeow.Core.Utilities.Tools
             }
         }
 
-        public void Enqueue(Func<Task> task)
-        {
-            if (task == null)
-                throw new ArgumentNullException(nameof(task));
-
-            var wrapper = new TaskPatch(task);
-            _taskQueue.Add(wrapper);
-        }
-
-        public Task<T> Enqueue<T>(Func<Task<T>> task)
-        {
-            if (task == null)
-                throw new ArgumentNullException(nameof(task));
-
-            var wrapper = new TaskPatch<T>(task);
-            _taskQueue.Add(wrapper);
-            return wrapper.Completion.Task;
-        }
-
-        private interface ITaskPatch
-        {
-            Task ExecuteAsync();
-        }
-
         private class TaskPatch<T> : ITaskPatch
         {
-            public Func<Task<T>> Task { get; }
-            public TaskCompletionSource<T> Completion { get; }
-
             public TaskPatch(Func<Task<T>> task)
             {
                 Task = task ?? throw new ArgumentNullException(nameof(task));
                 Completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
             }
 
+            public Func<Task<T>> Task { get; }
+
+            public TaskCompletionSource<T> Completion { get; }
+
             public async Task ExecuteAsync()
             {
                 try
                 {
-                    var result = await Task();
+                    T result = await Task();
                     Completion.SetResult(result);
                 }
                 catch (Exception ex)
@@ -87,12 +88,12 @@ namespace HintServiceMeow.Core.Utilities.Tools
 
         private class TaskPatch : ITaskPatch
         {
-            public Func<Task> Task { get; }
-
             public TaskPatch(Func<Task> task)
             {
                 Task = task ?? throw new ArgumentNullException(nameof(task));
             }
+
+            public Func<Task> Task { get; }
 
             public async Task ExecuteAsync()
             {

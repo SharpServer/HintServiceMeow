@@ -1,27 +1,27 @@
-﻿using HintServiceMeow.Core.Interface;
-using System;
-using System.Collections.Generic;
-
-namespace HintServiceMeow.Core.Utilities
+﻿namespace HintServiceMeow.Core.Utilities
 {
+    using System;
+    using System.Collections.Generic;
+    using HintServiceMeow.Core.Interface;
+
     internal class Cache<TKey, TItem> : ICache<TKey, TItem>
     {
-        private readonly object _lock = new();
+        private readonly object cacheLock = new();
 
-        private readonly Dictionary<TKey, CacheItem> _cache = new();
-        private readonly CacheItem _removeQueueHead;
-        private readonly int _maxSize;
+        private readonly Dictionary<TKey, CacheItem> cache = [];
+        private readonly CacheItem removeQueueHead;
+        private readonly int maxSize;
 
         public Cache(int maxSize)
         {
             if (maxSize < 1)
                 throw new ArgumentOutOfRangeException(nameof(maxSize), "Cache size must be greater than 0.");
 
-            _removeQueueHead = new CacheItem(default, default);
-            _removeQueueHead.PrevItem = _removeQueueHead;
-            _removeQueueHead.NextItem = _removeQueueHead;
+            removeQueueHead = new CacheItem(default!, default!);
+            removeQueueHead.PrevItem = removeQueueHead;
+            removeQueueHead.NextItem = removeQueueHead;
 
-            _maxSize = maxSize;
+            this.maxSize = maxSize;
         }
 
         public void Add(TKey key, TItem data)
@@ -29,37 +29,38 @@ namespace HintServiceMeow.Core.Utilities
             if (key is null)
                 throw new ArgumentNullException(nameof(key));
 
-            CacheItem item = new CacheItem(key, data);
+            CacheItem item = new(key, data);
 
-            lock (_lock)
+            lock (cacheLock)
             {
                 // Remove the old item
-                if (_cache.TryGetValue(key, out CacheItem oldItem))
+                if (cache.TryGetValue(key, out CacheItem oldItem))
                 {
                     RemoveFromList(oldItem);
-                    _cache.Remove(oldItem.Key);
+                    cache.Remove(oldItem.Key);
                 }
 
-                _cache.Add(key, item);
+                cache.Add(key, item);
 
                 // Inset into queue
                 InsertToList(item);
 
                 // If reach maximum capacity, remove the oldest item
-                if (_cache.Count > _maxSize)
+                if (cache.Count > maxSize)
                 {
-                    CacheItem lastItem = _removeQueueHead.PrevItem;
+                    CacheItem lastItem = removeQueueHead.PrevItem;
                     RemoveFromList(lastItem);
-                    _cache.Remove(lastItem.Key);
+                    cache.Remove(lastItem.Key);
                 }
             }
         }
 
+#nullable disable
         public bool TryGet(TKey key, out TItem item)
         {
-            lock (_lock)
+            lock (cacheLock)
             {
-                if (_cache.TryGetValue(key, out CacheItem cachedItem))
+                if (cache.TryGetValue(key, out CacheItem cachedItem))
                 {
                     RemoveFromList(cachedItem);// Remove from queue
                     InsertToList(cachedItem);// Insert to the front
@@ -75,12 +76,12 @@ namespace HintServiceMeow.Core.Utilities
 
         public bool TryRemove(TKey key, out TItem item)
         {
-            lock (_lock)
+            lock (cacheLock)
             {
-                if (_cache.TryGetValue(key, out CacheItem cachedItem))
+                if (cache.TryGetValue(key, out CacheItem cachedItem))
                 {
                     RemoveFromList(cachedItem);
-                    _cache.Remove(cachedItem.Key);
+                    cache.Remove(cachedItem.Key);
                     item = cachedItem.Data;
                     return true;
                 }
@@ -89,10 +90,11 @@ namespace HintServiceMeow.Core.Utilities
             item = default;
             return false;
         }
+#nullable restore
 
-        private void RemoveFromList(CacheItem item)
+        private void RemoveFromList(CacheItem? item)
         {
-            if (item == null || item == _removeQueueHead)
+            if (item == null || item == removeQueueHead)
                 return;
 
             item.PrevItem.NextItem = item.NextItem;
@@ -100,30 +102,26 @@ namespace HintServiceMeow.Core.Utilities
         }
 
         /// <summary>
-        /// Insert an item to the first place of the remove queue
+        /// Insert an item to the first place of the remove queue.
         /// </summary>
-        /// <param name="item"></param>
+        /// <param name="item">The item to be inserted.</param>
         private void InsertToList(CacheItem item)
         {
-            item.PrevItem = _removeQueueHead;
-            item.NextItem = _removeQueueHead.NextItem;
+            item.PrevItem = removeQueueHead;
+            item.NextItem = removeQueueHead.NextItem;
             item.NextItem.PrevItem = item;
             item.PrevItem.NextItem = item;
         }
 
-        private class CacheItem
+        private class CacheItem(TKey key, TItem data)
         {
-            public readonly TKey Key;
-            public readonly TItem Data;
+            public TKey Key { get; } = key;
 
-            public CacheItem PrevItem;
-            public CacheItem NextItem;
+            public TItem Data { get; } = data;
 
-            public CacheItem(TKey key, TItem data)
-            {
-                Key = key;
-                Data = data;
-            }
+            public CacheItem PrevItem { get; set; } = null!;
+
+            public CacheItem NextItem { get; set; } = null!;
         }
     }
 }

@@ -1,365 +1,173 @@
-﻿using HintServiceMeow.Core.Enum;
-using HintServiceMeow.Core.Interface;
-using HintServiceMeow.Core.Models;
-using HintServiceMeow.Core.Models.Arguments;
-using HintServiceMeow.Core.Models.Hints;
-using HintServiceMeow.Core.Utilities.Parser;
-using HintServiceMeow.Core.Utilities.Tools;
-using MEC;
-using System;
-using System.Collections.Generic;
-using System.Collections.Specialized;
-using System.ComponentModel;
-using System.Linq;
-using System.Reflection;
-using System.Threading.Tasks;
-
 namespace HintServiceMeow.Core.Utilities
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Collections.Specialized;
+    using System.ComponentModel;
+    using System.Linq;
+    using System.Reflection;
+    using System.Threading.Tasks;
+    using HintServiceMeow.Core.Enum;
+    using HintServiceMeow.Core.Extension;
+    using HintServiceMeow.Core.Interface;
+    using HintServiceMeow.Core.Models;
+    using HintServiceMeow.Core.Models.Arguments;
+    using HintServiceMeow.Core.Models.Hints;
+    using HintServiceMeow.Core.Utilities.Parser;
+    using HintServiceMeow.Core.Utilities.Tools;
+    using HintServiceMeow.Core.Utilities.UnityAdaptors;
+
     /// <summary>
-    /// Represent a player's display. This class is used to manage hints and update hint to player's display
+    /// Represents a player's display, responsible for managing hints and rendering them on the player's screen.
     /// </summary>
-    public class PlayerDisplay : IPlayerDisplay, Interface.IDestructible
+    public class PlayerDisplay : IPlayerDisplay, IDestructible
     {
-        /// <summary>
-        /// The player this instance bind to
-        /// </summary>
-        public ReferenceHub ReferenceHub => _playerContext is ReferenceHubContext context ? context.ReferenceHub : null;
+        private static readonly HashSet<PlayerDisplay> PlayerDisplayList = [];
+        private static readonly object PlayerDisplayListLock = new();
 
-        /// <summary>
-        /// Invoke every tick when ReferenceHub display is ready to update.
-        /// </summary>
-        public event UpdateAvailableEventHandler UpdateAvailable;
-        public delegate void UpdateAvailableEventHandler(UpdateAvailableEventArg ev);
+        private readonly List<IDisplayOutput> displayOutputs = [];
 
-        private static readonly HashSet<PlayerDisplay> PlayerDisplayList = new HashSet<PlayerDisplay>();
-        private static readonly object PlayerDisplayListLock = new object();
+        private readonly IPlayerContext playerContext; // Initialize in constructor
+        private readonly HintCollection hintCollection = new();
+        private readonly ITaskScheduler updateScheduler; // Initialize in constructor
 
-        private readonly List<IDisplayOutput> _displayOutputs = new();
-        private readonly object _displayOutputsLock = new object();
+        private readonly object displayOutputsLock = new();
+        private readonly object currentParserTaskLock = new();
 
-        private readonly IPlayerContext _playerContext;
-        private readonly HintCollection _hints = new HintCollection();
-        private readonly ITaskScheduler _updateScheduler;//Initialize in constructor
-        private IHintParser _hintParser = new HintParser();
-        private ICompatibilityAdaptor _adapter;//Initialize in constructor
+        private IHintParser hintParser = new HintParser();
+        private ICompatibilityAdaptor adapter; // Initialize in constructor
 
-        private CoroutineHandle _coroutine;//Initialize in constructor
+        private IMainThreadDispatcher mainThreadDispatcher = new UnityMainThreadDispatcher();
 
-        private Task _currentParserTask;
-        private readonly object _currentParserTaskLock = new object();
+        private ICoroutine coroutine; // Initialize in constructor
+        private ICoroutineRunner coroutineRunner = new UnityCoroutineRunner();
 
-        private PlayerDisplay(
+        private Task? currentParserTask;
+
+        private volatile bool isDestructed = false;
+
+        internal PlayerDisplay(
             IPlayerContext playerContext,
-            HintCollection hints = null,
-            ITaskScheduler updateScheduler = null,
-            ICompatibilityAdaptor adaptor = null,
-            IHintParser hintParser = null,
-            IEnumerable<IDisplayOutput> displayOutputs = null)
+            HintCollection? displayHints = null,
+            ITaskScheduler? updateScheduler = null,
+            ICompatibilityAdaptor? adaptor = null,
+            IHintParser? hintParser = null,
+            IEnumerable<IDisplayOutput>? displayOutputs = null,
+            IMainThreadDispatcher? dispatcher = null,
+            ICoroutineRunner? coroutineRunner = null)
         {
-            _playerContext = playerContext ?? throw new ArgumentNullException(nameof(playerContext));
+            // Initialize each components
+            this.playerContext = playerContext ?? throw new ArgumentNullException(nameof(playerContext));
 
-            if (hints != null)
-                _hints = hints;
+            if (displayHints != null)
+                this.hintCollection = displayHints;
             if (hintParser != null)
-                _hintParser = hintParser;
+                this.hintParser = hintParser;
             if (displayOutputs != null)
-                _displayOutputs = displayOutputs?.ToList();
+                this.displayOutputs = displayOutputs.ToList();
+            if (dispatcher != null)
+                this.mainThreadDispatcher = dispatcher;
+            if (coroutineRunner != null)
+                this.coroutineRunner = coroutineRunner;
 
-            _adapter = adaptor ?? new CompatibilityAdaptor(this); // Default compatibility adaptor
-            _updateScheduler = updateScheduler ?? new TaskScheduler(); // Default task scheduler with zero interval
+            adapter = adaptor ?? new CompatibilityAdaptor(this); // Default compatibility adaptor
+            this.updateScheduler = updateScheduler ?? new TaskScheduler(); // Default task scheduler with zero interval
 
-            _hints.CollectionChanged += OnCollectionChanged;
-            _updateScheduler.Start(TimeSpan.Zero, () =>
+            // When collection changed, update the content on player's screen
+            this.hintCollection.CollectionChanged += OnCollectionChanged;
+
+            // Initialize update scheduler. Make update scheduler wait for a cycle when the previous parper is still running. Set action of the scheduler to start parser task.
+            this.updateScheduler.InvokeUntilSuccess = true;
+            this.updateScheduler.Start(TimeSpan.Zero, () =>
             {
-                _updateScheduler.Pause();//Pause action until the parser task is finishing
+                lock (currentParserTaskLock)
+                {
+                    if (currentParserTask != null)
+                        return false; // If a parser task is already running, wait till next cycle to update
+                }
+
+                this.updateScheduler.Pause(); // Pause action until the parser task is finishing
                 StartParserTask();
+
+                return true; // Success
             });
-            MainThreadDispatcher.Dispatch(() => this._coroutine = Timing.RunCoroutine(CoroutineMethod()));
+
+            // Start the main coroutine on main thread
+            coroutine = this.coroutineRunner.StartCoroutine(CoroutineMethod());
         }
 
         private PlayerDisplay(ReferenceHub referenceHub)
             : this(new ReferenceHubContext(referenceHub))
         {
-            this._displayOutputs.Add(new DefaultDisplayOutput(referenceHub.connectionToClient));
-        }
-
-        /// <summary>
-        /// Not thread safe
-        /// </summary>
-        internal static void Destruct(ReferenceHub referenceHub)
-        {
             if (referenceHub is null)
                 throw new ArgumentNullException(nameof(referenceHub));
 
-            ReferenceHubContext context = new ReferenceHubContext(referenceHub);
+            // Do not add display output for host
+            if (referenceHub.IsHost)
+                return;
 
-            lock (PlayerDisplayListLock)
-            {
-                PlayerDisplay pd = PlayerDisplayList.FirstOrDefault(x => x._playerContext.Equals(context));
-
-                if (pd is null)
-                    return;
-
-                ((Interface.IDestructible)pd).Destruct();
-
-                PlayerDisplayList.Remove(pd); // Remove from the reference list
-            }
+            displayOutputs.Add(new ScpslDisplayOutput(referenceHub.connectionToClient));
         }
 
-        void Interface.IDestructible.Destruct()
-        {
-            Timing.KillCoroutines(this._coroutine); // Stop coroutine
-            this.UpdateAvailable = null; // Clear event
+        /// <summary>
+        /// Represents a method that handles the <see cref="UpdateAvailable"/> event.
+        /// </summary>
+        /// <param name="ev">The event arguments containing the player display context.</param>
+        public delegate void UpdateAvailableEventHandler(UpdateAvailableEventArg ev);
 
-            // Clear collection's reference to this pd
-            this._hints.CollectionChanged -= this.OnCollectionChanged;
+        /// <summary>
+        /// Invoked every tick when the player's display is ready to receive a hint update.
+        /// </summary>
+        public event UpdateAvailableEventHandler? UpdateAvailable;
 
-            // Clear hint's reference to this pd
-            foreach (var hint in this._hints.GetHints(null))
-            {
-                hint.PropertyChanged -= this.OnHintUpdate;
-                this.UpdateAvailable -= hint.TryUpdateHint;
-            }
+        /// <summary>
+        /// Gets the player this instance binds to.
+        /// </summary>
+        public ReferenceHub? ReferenceHub => playerContext is ReferenceHubContext context ? context.ReferenceHub : throw new NullReferenceException();
 
-            // Clear pd's reference to hints
-            this._hints.ClearHints(null);
-
-            ((Interface.IDestructible)this._updateScheduler).Destruct(); // Stop task scheduler's coroutine
-
-            ((Interface.IDestructible)this._adapter).Destruct(); // Stop compatibility adaptor's coroutine
-        }
-
-        internal static void ClearInstance()
-        {
-            lock (PlayerDisplayListLock)
-            {
-                foreach (PlayerDisplay pd in PlayerDisplayList)
-                {
-                    if (pd is null)
-                        continue;
-
-                    ((Interface.IDestructible)pd).Destruct();
-                }
-
-                PlayerDisplayList.Clear();
-            }
-        }
-
+        /// <summary>
+        /// Gets or sets the parser used to convert hint collections into display messages.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">Thrown when the assigned value is <see langword="null"/>.</exception>
         public IHintParser HintParser
         {
-            get => _hintParser;
-            set => _hintParser = value ?? throw new ArgumentNullException(nameof(value));
+            get => hintParser;
+            set => hintParser = value ?? throw new ArgumentNullException(nameof(value));
         }
 
+        /// <summary>
+        /// Gets or sets the compatibility adaptor used to send hints to the player.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">Thrown when the assigned value is <see langword="null"/>.</exception>
         public ICompatibilityAdaptor CompatibilityAdaptor
         {
-            get => _adapter;
-            set => _adapter = value ?? throw new ArgumentNullException(nameof(value));
-        }
-
-        private IEnumerator<float> CoroutineMethod()
-        {
-            while (true)
-            {
-                yield return Timing.WaitForOneFrame;
-
-                //If player has quit, then stop the coroutine
-                if (!this._playerContext.IsValid())
-                    break;
-
-                //Reset the success flag
-                bool isSuccessful = true;
-
-                try
-                {
-                    //Periodic update
-                    if (_updateScheduler.Elapsed > TimeSpan.FromSeconds(5))
-                        ScheduleUpdate();
-
-                    if (_updateScheduler.IsReadyForNextAction)
-                    {
-                        UpdateAvailable?.Invoke(new UpdateAvailableEventArg(this));
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.Instance.Error(ex);
-                    isSuccessful = false; //If error occurred, set the success flag to false
-                }
-
-                //If the update is not successful, wait for a while before trying again so that it will not stuck the log.
-                if (!isSuccessful)
-                {
-                    yield return Timing.WaitForSeconds(1f);
-                }
-            }
-        }
-
-        private void OnCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
-        {
-            ScheduleUpdate();
-        }
-
-        private void OnHintUpdate(object sender, PropertyChangedEventArgs ev)
-        {
-            if (!(sender is AbstractHint hint))
-                return;
-
-            //Skip if the hint's property changed when it is hided
-            if (ev.PropertyName != "Hide" && hint.Hide)
-                return;
-
-            if (hint.SyncSpeed == HintSyncSpeed.UnSync)
-                return;
-
-            float maxWaitingTime;
-            switch (hint.SyncSpeed)
-            {
-                case HintSyncSpeed.Fastest:
-                    maxWaitingTime = 0;
-                    break;
-                case HintSyncSpeed.Fast:
-                    maxWaitingTime = 0.1f;
-                    break;
-                case HintSyncSpeed.Normal:
-                    maxWaitingTime = 0.3f;
-                    break;
-                case HintSyncSpeed.Slow:
-                    maxWaitingTime = 1f;
-                    break;
-                case HintSyncSpeed.Slowest:
-                    maxWaitingTime = 3f;
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-
-            ScheduleUpdate(maxWaitingTime, hint);
-        }
-
-        private void ScheduleUpdate(float maxWaitingTime = float.MinValue, AbstractHint updatingHint = null)
-        {
-            if (maxWaitingTime <= 0)
-            {
-                _updateScheduler.Invoke();
-                return;
-            }
-
-            IEnumerable<AbstractHint> predictingHints = _hints.AllGroups.SelectMany(x => x);
-
-            if (updatingHint != null)
-            {
-                predictingHints = predictingHints.Where(h => h.SyncSpeed >= updatingHint.SyncSpeed && h != updatingHint);
-            }
-
-            TimeSpan maxWaitingTimeSpan = TimeSpan.FromSeconds(maxWaitingTime);
-            DateTime now = DateTime.Now;
-
-            DateTime delayedUpdateTime = predictingHints
-                .Select(h => h.UpdateAnalyser.EstimateNextUpdate())
-                .Where(x => x - now >= TimeSpan.Zero && x - now <= maxWaitingTimeSpan)
-                .DefaultIfEmpty(now)
-                .Max();
-
-            float delay = (float)(delayedUpdateTime - now).TotalSeconds;
-            delay = Math.Max(maxWaitingTime, delay * 1.1f); //Increase by 10% to make increase hit rate of prediction
-
-            if (delay <= 0)
-                _updateScheduler.Invoke();
-            else
-                _updateScheduler.Invoke(delay, DelayType.KeepFastest);
+            get => adapter;
+            set => adapter = value ?? throw new ArgumentNullException(nameof(value));
         }
 
         /// <summary>
-        /// Force an update when the update is available. You do not have to use this method unless you are using HintSyncSpeed.UnSync
+        /// Gets or creates the <see cref="PlayerDisplay"/> instance for the specified reference hub.
         /// </summary>
-        public void ForceUpdate(bool useFastUpdate = false)
-        {
-            ScheduleUpdate(useFastUpdate ? 0f : 0.3f);
-        }
-
-        private void StartParserTask()
-        {
-            lock (_currentParserTaskLock)
-            {
-                if (!(_currentParserTask is null))
-                    return;
-
-                _currentParserTask =
-                    ConcurrentTaskDispatcher.Instance.Enqueue(async () =>
-                    {
-                        string richText;
-
-                        try
-                        {
-                            richText = _hintParser.ParseToMessage(_hints);
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.Instance.Error(ex);
-                            return Task.CompletedTask;
-                        }
-
-                        MainThreadDispatcher.Dispatch(() =>
-                        {
-                            try
-                            {
-                                SendHint(richText);
-                            }
-                            catch (Exception ex)
-                            {
-                                Logger.Instance.Error(ex);
-                            }
-                            finally
-                            {
-                                _updateScheduler.Resume(); //Resume action after the parser task is finishing
-
-                                lock (_currentParserTaskLock)
-                                {
-                                    _currentParserTask = null;
-                                }
-                            }
-                        });
-
-                        return Task.CompletedTask;
-                    });
-            }
-        }
-
-        private void SendHint(string text)
-        {
-            foreach (IDisplayOutput output in _displayOutputs.ToArray())
-            {
-                try
-                {
-                    output.ShowHint(new DisplayOutputArg(this, text));
-                }
-                catch (Exception ex)
-                {
-                    Logger.Instance.Error(ex);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Get the PlayerDisplay instance of the player. If the instance have not been created yet, then it will create one.
-        /// Not Thread Safe
-        /// </summary>
+        /// <param name="referenceHub">The <see cref="global::ReferenceHub"/> that owns the <see cref="PlayerDisplay"/>.</param>
+        /// <returns>The <see cref="PlayerDisplay"/> assigned to the given <see cref="global::ReferenceHub"/>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="referenceHub"/> is <see langword="null"/>.</exception>
         public static PlayerDisplay Get(ReferenceHub referenceHub)
         {
             if (referenceHub is null)
                 throw new ArgumentNullException(nameof(referenceHub));
 
-            ReferenceHubContext context = new ReferenceHubContext(referenceHub);
-
             lock (PlayerDisplayListLock)
             {
-                PlayerDisplay existing = PlayerDisplayList.FirstOrDefault(x => x._playerContext.Equals(context));
+                foreach (PlayerDisplay playerDisplay in PlayerDisplayList)
+                {
+                    if (playerDisplay.playerContext is ReferenceHubContext referenceHubContext
+                        && referenceHubContext.ReferenceHub == referenceHub)
+                    {
+                        return playerDisplay;
+                    }
+                }
 
-                if (!(existing is null))
-                    return existing;
-
+                // Create new one if not found.
                 PlayerDisplay newPlayerDisplay = new(referenceHub);
                 PlayerDisplayList.Add(newPlayerDisplay);
                 return newPlayerDisplay;
@@ -367,9 +175,11 @@ namespace HintServiceMeow.Core.Utilities
         }
 
         /// <summary>
-        /// Get the PlayerDisplay instance of the player. If the instance have not been created yet, then it will create one.
-        /// Not Thread Safe
+        /// Gets or creates the <see cref="PlayerDisplay"/> instance for the specified LabApi player.
         /// </summary>
+        /// <param name="player">The LabApi player whose display is retrieved or created.</param>
+        /// <returns>The <see cref="PlayerDisplay"/> assigned to the given player.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="player"/> is <see langword="null"/>.</exception>
         public static PlayerDisplay Get(LabApi.Features.Wrappers.Player player)
         {
             if (player is null)
@@ -381,8 +191,10 @@ namespace HintServiceMeow.Core.Utilities
 #if EXILED
         /// <summary>
         /// Get the PlayerDisplay instance of the player. If the instance have not been created yet, then it will create one.
-        /// Not Thread Safe
+        /// Not Thread Safe.
         /// </summary>
+        /// <param name="player">The owner of the <see cref="PlayerDisplay"/>.</param>
+        /// <returns>The players <see cref="PlayerDisplay"/>.</returns>
         public static PlayerDisplay Get(Exiled.API.Features.Player player)
         {
             if (player is null)
@@ -391,62 +203,240 @@ namespace HintServiceMeow.Core.Utilities
             return Get(player.ReferenceHub);
         }
 #endif
+
+        /// <summary>
+        /// Forces an immediate display update. Only needed when using <see cref="HintSyncSpeed.UnSync"/>.
+        /// </summary>
+        /// <param name="useFastUpdate">If <see langword="true"/>, schedules the update as soon as possible; otherwise applies a short delay.</param>
+        public void ForceUpdate(bool useFastUpdate = false)
+        {
+            ScheduleUpdate(useFastUpdate ? 0f : 0.3f);
+        }
+
+        /// <summary>
+        /// Sets the minimum interval between each updates.
+        /// </summary>
+        /// <remarks>Use this method to control how frequently updates are allowed to occur. Setting a
+        /// longer interval can help reduce resource usage by limiting update frequency.</remarks>
+        /// <param name="interval">The minimum time interval that must elapse between updates. Must be a positive value.</param>
+        public void SetMinUpdateInterval(TimeSpan interval)
+        {
+            updateScheduler.MinInterval = interval;
+        }
+
+        /// <summary>
+        /// Registers an additional display output target that will receive rendered hint content.
+        /// </summary>
+        /// <param name="output">The display output to add.</param>
         public void AddDisplayOutput(IDisplayOutput output)
         {
-            lock (_displayOutputsLock)
+            lock (displayOutputsLock)
             {
-                _displayOutputs.Add(output);
+                displayOutputs.Add(output);
             }
         }
 
+        /// <summary>
+        /// Removes the specified display output target.
+        /// </summary>
+        /// <param name="output">The display output to remove.</param>
         public void RemoveDisplayOutput(IDisplayOutput output)
         {
-            lock (_displayOutputsLock)
+            lock (displayOutputsLock)
             {
-                _displayOutputs.Remove(output);
+                displayOutputs.Remove(output);
             }
         }
 
-        public void RemoveDisplayOutput<T>() where T : IDisplayOutput
+        /// <summary>
+        /// Removes all display output targets of the specified type.
+        /// </summary>
+        /// <typeparam name="T">The type of display output to remove.</typeparam>
+        public void RemoveDisplayOutput<T>()
+            where T : IDisplayOutput
         {
-            lock (_displayOutputsLock)
+            lock (displayOutputsLock)
             {
-                _displayOutputs.RemoveAll(x => x is T);
+                displayOutputs.RemoveAll(x => x is T);
             }
         }
 
-        public void AddHint(AbstractHint hint)
+        /// <summary>
+        /// Adds a hint to this player's display under the calling assembly's group.
+        /// </summary>
+        /// <param name="hint">The hint to add. Ignored if <see langword="null"/>.</param>
+        public void AddHint(AbstractHint? hint)
         {
             if (hint is null)
                 return;
 
-            this.InternalAddHint(Assembly.GetCallingAssembly().FullName, hint);
+            InternalAddHint(Assembly.GetCallingAssembly().FullName, hint);
         }
 
-        public void AddHint(IEnumerable<AbstractHint> hints)
+        /// <summary>
+        /// Adds a collection of hints to this player's display under the calling assembly's group.
+        /// </summary>
+        /// <param name="hints">The hints to add. Ignored if <see langword="null"/>.</param>
+        public void AddHint(IEnumerable<AbstractHint>? hints)
         {
             if (hints is null)
                 return;
 
-            this.InternalAddHint(Assembly.GetCallingAssembly().FullName, hints);
+            string groupName = Assembly.GetCallingAssembly().FullName;
+
+            foreach (AbstractHint hint in hints)
+            {
+                InternalAddHint(groupName, hint);
+            }
         }
 
-        public void RemoveHint(AbstractHint hint)
+        /// <summary>
+        /// Adds one or more hints to this player's display under the calling assembly's group.
+        /// </summary>
+        /// <param name="hints">The hints to add. Ignored if <see langword="null"/> or empty.</param>
+        public void AddHint(params AbstractHint[]? hints)
+        {
+            if (hints is null || hints.Length == 0)
+                return;
+
+            string groupName = Assembly.GetCallingAssembly().FullName;
+            foreach (AbstractHint hint in hints)
+            {
+                InternalAddHint(groupName, hint);
+            }
+        }
+
+        /// <summary>
+        /// Only use this if you know what you are doing. Add a hint to a specified group.
+        /// </summary>
+        /// <param name="hint">Hint added.</param>
+        /// <param name="groupName">Group the hint will be assigned to.</param>
+        public void AddHint(AbstractHint? hint, string groupName)
         {
             if (hint is null)
                 return;
 
-            this.InternalRemoveHint(Assembly.GetCallingAssembly().FullName, hint);
+            InternalAddHint(groupName, hint);
         }
 
-        public void RemoveHint(IEnumerable<AbstractHint> hints)
+        /// <summary>
+        /// Adds a hint to the player's display and schedules its removal or hiding after the specified duration.
+        /// </summary>
+        /// <param name="hint">The hint to show.</param>
+        /// <param name="duration">The duration in seconds before the after-show action is applied.</param>
+        /// <param name="afterShow">The action to take after the duration elapses.</param>
+        public void ShowHint(AbstractHint hint, float duration = 7f, AfterShowAction afterShow = AfterShowAction.Remove)
+        {
+            if (hint is null)
+                return;
+
+            string groupName = Assembly.GetCallingAssembly().FullName;
+
+            this.InternalAddHint(groupName, hint);
+
+            switch (afterShow)
+            {
+                case AfterShowAction.Remove:
+                    this.RemoveAfter(hint, duration);
+                    break;
+                case AfterShowAction.Hide:
+                    hint.HideAfter(duration);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Adds a collection of hints to the player's display and schedules their removal or hiding after the specified duration.
+        /// </summary>
+        /// <param name="hints">The hints to show.</param>
+        /// <param name="duration">The duration in seconds before the after-show action is applied.</param>
+        /// <param name="afterShow">The action to take after the duration elapses.</param>
+        public void ShowHint(IEnumerable<AbstractHint> hints, float duration = 7f, AfterShowAction afterShow = AfterShowAction.Remove)
         {
             if (hints is null)
                 return;
 
-            this.InternalRemoveHint(Assembly.GetCallingAssembly().FullName, hints);
+            string groupName = Assembly.GetCallingAssembly().FullName;
+
+            foreach (AbstractHint hint in hints)
+            {
+                this.InternalAddHint(groupName, hint);
+
+                switch (afterShow)
+                {
+                    case AfterShowAction.Remove:
+                        this.RemoveAfter(hint, duration);
+                        break;
+                    case AfterShowAction.Hide:
+                        hint.HideAfter(duration);
+                        break;
+                }
+            }
         }
 
+        /// <summary>
+        /// Removes the specified hint from the calling assembly's group.
+        /// </summary>
+        /// <param name="hint">The hint to remove. Ignored if <see langword="null"/>.</param>
+        public void RemoveHint(AbstractHint? hint)
+        {
+            if (hint is null)
+                return;
+
+            InternalRemoveHint(Assembly.GetCallingAssembly().FullName, hint);
+        }
+
+        /// <summary>
+        /// Removes a collection of hints from the calling assembly's group.
+        /// </summary>
+        /// <param name="hints">The hints to remove. Ignored if <see langword="null"/>.</param>
+        public void RemoveHint(IEnumerable<AbstractHint>? hints)
+        {
+            if (hints is null)
+                return;
+
+            string groupName = Assembly.GetCallingAssembly().FullName;
+            foreach (AbstractHint hint in hints)
+            {
+                InternalRemoveHint(groupName, hint);
+            }
+        }
+
+        /// <summary>
+        /// Removes one or more hints from the calling assembly's group.
+        /// </summary>
+        /// <param name="hints">The hints to remove. Ignored if <see langword="null"/> or empty.</param>
+        public void RemoveHint(params AbstractHint[]? hints)
+        {
+            if (hints is null || hints.Length == 0)
+                return;
+
+            string groupName = Assembly.GetCallingAssembly().FullName;
+            foreach (AbstractHint hint in hints)
+            {
+                InternalRemoveHint(groupName, hint);
+            }
+        }
+
+        /// <summary>
+        /// Removes the specified hint from the given group.
+        /// </summary>
+        /// <param name="hint">The hint to remove. Ignored if <see langword="null"/>.</param>
+        /// <param name="groupName">The group name to remove the hint from.</param>
+        public void RemoveHint(AbstractHint? hint, string groupName)
+        {
+            if (hint is null)
+                return;
+
+            InternalRemoveHint(groupName, hint);
+        }
+
+        /// <summary>
+        /// Removes all hints with the specified identifier from the calling assembly's group.
+        /// </summary>
+        /// <param name="id">The identifier of the hints to remove.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="id"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="id"/> is an empty string.</exception>
         public void RemoveHint(string id)
         {
             if (id is null)
@@ -455,23 +445,34 @@ namespace HintServiceMeow.Core.Utilities
             if (id == string.Empty)
                 throw new ArgumentException("A empty string had been passed to RemoveHint");
 
-            this.InternalRemoveHint(Assembly.GetCallingAssembly().FullName, id);
-        }
-
-        public void RemoveHint(Guid id)
-        {
-            this.InternalRemoveHint(Assembly.GetCallingAssembly().FullName, id);
-        }
-
-        public void ClearHint()
-        {
-            this.InternalClearHint(Assembly.GetCallingAssembly().FullName);
+            InternalRemoveHint(Assembly.GetCallingAssembly().FullName, id);
         }
 
         /// <summary>
-        /// Return the first hint that match the id
+        /// Removes the hint with the specified <see cref="Guid"/> from the calling assembly's group.
         /// </summary>
-        public AbstractHint GetHint(string id)
+        /// <param name="id">The unique identifier of the hint to remove.</param>
+        public void RemoveHint(Guid id)
+        {
+            InternalRemoveHint(Assembly.GetCallingAssembly().FullName, id);
+        }
+
+        /// <summary>
+        /// Removes all hints registered by the calling assembly.
+        /// </summary>
+        public void ClearHint()
+        {
+            InternalClearHint(Assembly.GetCallingAssembly().FullName);
+        }
+
+        /// <summary>
+        /// Returns the first hint registered by the calling assembly that matches the specified identifier.
+        /// </summary>
+        /// <param name="id">The identifier to search for.</param>
+        /// <returns>The matching <see cref="AbstractHint"/>, or <see langword="null"/> if none is found.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="id"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="id"/> is an empty string.</exception>
+        public AbstractHint? GetHint(string? id)
         {
             if (id is null)
                 throw new ArgumentNullException(nameof(id));
@@ -482,6 +483,21 @@ namespace HintServiceMeow.Core.Utilities
             return InternalGetHints(Assembly.GetCallingAssembly().FullName, x => x.Id == id).FirstOrDefault();
         }
 
+        /// <summary>
+        /// Returns the first hint registered by the calling assembly that matches the specified <see cref="Guid"/>.
+        /// </summary>
+        /// <param name="guid">The unique identifier to search for.</param>
+        /// <returns>The matching <see cref="AbstractHint"/>, or <see langword="null"/> if none is found.</returns>
+        public AbstractHint? GetHint(Guid guid)
+            => InternalGetHints(Assembly.GetCallingAssembly().FullName, x => x.Guid == guid).FirstOrDefault();
+
+        /// <summary>
+        /// Returns all hints registered by the calling assembly that match the specified identifier.
+        /// </summary>
+        /// <param name="id">The identifier to filter hints by.</param>
+        /// <returns>An enumerable sequence of matching hints.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="id"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="id"/> is an empty string.</exception>
         public IEnumerable<AbstractHint> GetHints(string id)
         {
             if (id is null)
@@ -494,18 +510,21 @@ namespace HintServiceMeow.Core.Utilities
         }
 
         /// <summary>
-        /// Return the first hint that match the guid
+        /// Returns all hints registered by the calling assembly.
         /// </summary>
-        public AbstractHint GetHint(Guid guid)
-        {
-            return InternalGetHints(Assembly.GetCallingAssembly().FullName, x => x.Guid == guid).FirstOrDefault();
-        }
-
+        /// <returns>An enumerable sequence of all hints belonging to the calling assembly.</returns>
         public IEnumerable<AbstractHint> GetHints()
         {
-            return this.InternalGetHints(Assembly.GetCallingAssembly().FullName);
+            return InternalGetHints(Assembly.GetCallingAssembly().FullName);
         }
 
+        /// <summary>
+        /// Determines whether any hint registered by the calling assembly has the specified identifier.
+        /// </summary>
+        /// <param name="id">The identifier to search for.</param>
+        /// <returns><see langword="true"/> if a matching hint exists; otherwise <see langword="false"/>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="id"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="id"/> is an empty string.</exception>
         public bool HasHint(string id)
         {
             if (id is null)
@@ -517,14 +536,25 @@ namespace HintServiceMeow.Core.Utilities
             return InternalGetHints(Assembly.GetCallingAssembly().FullName, hint => hint.Id == id).Any();
         }
 
+        /// <summary>
+        /// Determines whether any hint registered by the calling assembly matches the specified <see cref="Guid"/>.
+        /// </summary>
+        /// <param name="guid">The unique identifier to search for.</param>
+        /// <returns><see langword="true"/> if a matching hint exists; otherwise <see langword="false"/>.</returns>
         public bool HasHint(Guid guid)
         {
             return InternalGetHints(Assembly.GetCallingAssembly().FullName, hint => hint.Guid == guid).Any();
         }
 
         /// <summary>
-        /// Return the first hint that match the id
+        /// Attempts to retrieve the first hint registered by the calling assembly that matches the specified identifier.
         /// </summary>
+        /// <param name="id">The identifier to search for.</param>
+        /// <param name="hint">When this method returns, contains the matching hint, or <see langword="null"/> if none was found.</param>
+        /// <returns><see langword="true"/> if a matching hint was found; otherwise <see langword="false"/>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="id"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="id"/> is an empty string.</exception>
+#nullable disable
         public bool TryGetHint(string id, out AbstractHint hint)
         {
             if (id is null)
@@ -539,15 +569,27 @@ namespace HintServiceMeow.Core.Utilities
         }
 
         /// <summary>
-        /// Return the first hint that match the guid
+        /// Attempts to retrieve the first hint registered by the calling assembly that matches the specified <see cref="Guid"/>.
         /// </summary>
+        /// <param name="guid">The unique identifier to search for.</param>
+        /// <param name="hint">When this method returns, contains the matching hint, or <see langword="null"/> if none was found.</param>
+        /// <returns><see langword="true"/> if a matching hint was found; otherwise <see langword="false"/>.</returns>
         public bool TryGetHint(Guid guid, out AbstractHint hint)
         {
             hint = InternalGetHints(Assembly.GetCallingAssembly().FullName, x => x.Guid == guid).FirstOrDefault();
             return hint != null;
         }
+#nullable restore
 
-        public bool TryGetHints(string id, out IEnumerable<AbstractHint> hints)
+        /// <summary>
+        /// Attempts to retrieve all hints registered by the calling assembly that match the specified identifier.
+        /// </summary>
+        /// <param name="id">The identifier to search for.</param>
+        /// <param name="hints">When this method returns, contains the matching hints.</param>
+        /// <returns><see langword="true"/> if at least one matching hint was found; otherwise <see langword="false"/>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="id"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="id"/> is an empty string.</exception>
+        public bool TryGetHints(string? id, out IEnumerable<AbstractHint> hints)
         {
             if (id is null)
                 throw new ArgumentNullException(nameof(id));
@@ -559,47 +601,75 @@ namespace HintServiceMeow.Core.Utilities
             return hints.Any();
         }
 
+        void IDestructible.Destruct()
+        {
+            isDestructed = true; // Mark as destroyed to prevent further actions
+
+            coroutine.Kill(); // Stop coroutine
+
+            // Clear collection's reference to this pd
+            hintCollection.CollectionChanged -= OnCollectionChanged;
+
+            // Clear hint's reference to this pd
+            foreach (AbstractHint hint in hintCollection.GetHints(null))
+            {
+                hint.PropertyChanged -= OnHintUpdate;
+                UpdateAvailable -= hint.TryUpdateHint;
+            }
+
+            UpdateAvailable = null; // Clear event
+
+            // Clear pd's reference to hints
+            hintCollection.ClearHints(null);
+
+            ((IDestructible)updateScheduler).Destruct(); // Stop task scheduler's coroutine
+
+            ((IDestructible)adapter).Destruct(); // Stop compatibility adaptor's coroutine
+        }
+
+        /// <summary>
+        /// Not thread safe.
+        /// </summary>
+        /// <param name="referenceHub">The owner of the PlayerDisplay to destroy.</param>
+        internal static void Destruct(ReferenceHub referenceHub)
+        {
+            if (referenceHub is null)
+                throw new ArgumentNullException(nameof(referenceHub));
+
+            ReferenceHubContext context = new(referenceHub);
+
+            lock (PlayerDisplayListLock)
+            {
+                PlayerDisplay? pd = PlayerDisplayList.FirstOrDefault(x => x.playerContext.Equals(context));
+
+                if (pd is null)
+                    return;
+
+                ((IDestructible)pd).Destruct();
+
+                PlayerDisplayList.Remove(pd); // Remove from the reference list
+            }
+        }
+
         internal void InternalAddHint(string name, AbstractHint hint)
         {
             hint.PropertyChanged += OnHintUpdate;
             UpdateAvailable += hint.TryUpdateHint;
 
-            _hints.AddHint(name, hint);
+            hintCollection.AddHint(name, hint);
         }
 
-        internal void InternalAddHint(string name, IEnumerable<AbstractHint> hints)
-        {
-            foreach (AbstractHint hint in hints)
-            {
-                hint.PropertyChanged += OnHintUpdate;
-                UpdateAvailable += hint.TryUpdateHint;
-
-                _hints.AddHint(name, hint);
-            }
-        }
-
-        internal void InternalRemoveHint(string name, AbstractHint hint)
+        internal void InternalRemoveHint(string? name, AbstractHint hint)
         {
             hint.PropertyChanged -= OnHintUpdate;
             UpdateAvailable -= hint.TryUpdateHint;
 
-            _hints.RemoveHint(name, hint);
-        }
-
-        internal void InternalRemoveHint(string name, IEnumerable<AbstractHint> hints)
-        {
-            foreach (AbstractHint hint in hints)
-            {
-                hint.PropertyChanged -= OnHintUpdate;
-                UpdateAvailable -= hint.TryUpdateHint;
-
-                _hints.RemoveHint(name, hint);
-            }
+            hintCollection.RemoveHint(name, hint);
         }
 
         internal void InternalRemoveHint(string name, Guid guid)
         {
-            AbstractHint hint = _hints.GetHints(name).FirstOrDefault(x => x.Guid.Equals(guid));
+            AbstractHint? hint = hintCollection.GetHints(name).FirstOrDefault(x => x.Guid.Equals(guid));
 
             if (hint == null)
                 return;
@@ -607,12 +677,12 @@ namespace HintServiceMeow.Core.Utilities
             hint.PropertyChanged -= OnHintUpdate;
             UpdateAvailable -= hint.TryUpdateHint;
 
-            _hints.RemoveHint(name, x => x.Guid.Equals(guid));
+            hintCollection.RemoveHint(name, x => x.Guid.Equals(guid));
         }
 
         internal void InternalRemoveHint(string name, string id)
         {
-            IEnumerable<AbstractHint> removeList = _hints.GetHints(name).Where(predicate => predicate.Id == id);
+            IEnumerable<AbstractHint> removeList = hintCollection.GetHints(name).Where(predicate => predicate.Id == id);
 
             foreach (AbstractHint hint in removeList)
             {
@@ -620,30 +690,237 @@ namespace HintServiceMeow.Core.Utilities
                 UpdateAvailable -= hint.TryUpdateHint;
             }
 
-            _hints.RemoveHint(name, x => x.Id.Equals(id));
+            hintCollection.RemoveHint(name, x => x.Id.Equals(id));
         }
 
         internal void InternalClearHint(string name)
         {
-            foreach (AbstractHint hint in _hints.GetHints(name).ToList())
+            foreach (AbstractHint hint in hintCollection.GetHints(name).ToList())
             {
                 hint.PropertyChanged -= OnHintUpdate;
                 UpdateAvailable -= hint.TryUpdateHint;
             }
 
-            _hints.ClearHints(name);
+            hintCollection.ClearHints(name);
         }
 
         internal IReadOnlyList<AbstractHint> InternalGetHints(string name)
         {
-            return _hints.GetHints(name);
+            return hintCollection.GetHints(name);
         }
 
         internal IReadOnlyList<AbstractHint> InternalGetHints(string name, Func<AbstractHint, bool> predicate)
         {
-            return _hints.GetHints(name, predicate);
+            return hintCollection.GetHints(name, predicate);
         }
 
-        internal void ShowCompatibilityHint(string assemblyName, string content, float duration) => this._adapter.ShowHint(new CompatibilityAdaptorArg(assemblyName, content, duration));
+        internal void ShowCompatibilityHint(string assemblyName, string? content, float duration) => adapter.ShowHint(new CompatibilityAdaptorArg(assemblyName, content, duration));
+
+        private IEnumerator<float> CoroutineMethod()
+        {
+            while (true)
+            {
+                yield return -1f;
+
+                // If player has quit, then stop the coroutine
+                if (!playerContext.IsValid())
+                    break;
+
+                // Reset the success flag
+                bool isSuccessful = true;
+
+                try
+                {
+                    // Periodic update
+                    if (updateScheduler.Elapsed > TimeSpan.FromSeconds(5))
+                        ScheduleUpdate();
+
+                    if (updateScheduler.IsReadyForNextAction)
+                    {
+                        UpdateAvailable?.Invoke(new UpdateAvailableEventArg(this));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Instance.Error(ex);
+                    isSuccessful = false; // If error occurred, set the success flag to false
+                }
+
+                // If the update is not successful, wait for a while before trying again so that it will not stuck the log.
+                if (!isSuccessful)
+                {
+                    yield return 1f;
+                }
+            }
+        }
+
+        private void OnCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            ScheduleUpdate();
+        }
+
+        private void OnHintUpdate(object sender, PropertyChangedEventArgs ev)
+        {
+            if (sender is not AbstractHint hint)
+                return;
+
+            // Skip if the hint's property changed when it is hided
+            if (ev.PropertyName != "Hide" && hint.Hide)
+                return;
+
+            if (hint.SyncSpeed == HintSyncSpeed.UnSync)
+                return;
+
+            float maxWaitingTime = hint.SyncSpeed switch
+            {
+                HintSyncSpeed.Fastest => 0,
+                HintSyncSpeed.Fast => 0.1f,
+                HintSyncSpeed.Normal => 0.3f,
+                HintSyncSpeed.Slow => 1f,
+                HintSyncSpeed.Slowest => 3f,
+                _ => throw new ArgumentOutOfRangeException()
+            };
+
+            ScheduleUpdate(maxWaitingTime, hint);
+        }
+
+        private void ScheduleUpdate(float maxWaitingTime = float.MinValue, AbstractHint? updatingHint = null)
+        {
+            if (maxWaitingTime <= 0)
+            {
+                updateScheduler.Invoke();
+                return;
+            }
+
+            Logger.Instance.Debug($"Scheduling update with max waiting time: {maxWaitingTime}s");
+            IReadOnlyList<IReadOnlyList<AbstractHint>> allGroups = hintCollection.AllGroups;
+            List<AbstractHint> predictingHints = new List<AbstractHint>();
+
+            for (int i = 0; i < allGroups.Count; i++)
+            {
+                for (int j = 0; j < allGroups[i].Count; j++)
+                {
+                    predictingHints.Add(allGroups[i][j]);
+                }
+            }
+
+            Logger.Instance.Debug($"Predicting hints count: {predictingHints.Count}");
+            DateTime now = DateTime.Now;
+            DateTime maxTime = now.AddSeconds(maxWaitingTime);
+            DateTime delayedUpdateTime = now;
+
+            Logger.Instance.Debug($"delayed update: {delayedUpdateTime}");
+            foreach (var h in predictingHints)
+            {
+                if (h.SyncSpeed < updatingHint?.SyncSpeed || h == updatingHint)
+                    continue;
+
+                Logger.Instance.Debug($"Predicting hint: {h.Id} ({h.Guid})");
+                DateTime estNextUpdate = h.UpdateAnalyser.EstimateNextUpdate();
+
+                if (estNextUpdate == DateTime.MaxValue)
+                    continue;
+
+                TimeSpan delta = estNextUpdate - now;
+
+                Logger.Instance.Debug($"Estimated next update time: {estNextUpdate} (in {delta.TotalSeconds}s)");
+
+                // Only consider the updates that will happen within the max waiting time
+                if (estNextUpdate > delayedUpdateTime && estNextUpdate < maxTime)
+                    delayedUpdateTime = estNextUpdate;
+            }
+
+            Logger.Instance.Debug($"Final delayed update: {delayedUpdateTime}");
+            float delay = (float)(delayedUpdateTime - now).TotalSeconds;
+
+            // Clamp delay to maxWaitingTime
+            // Increase delay by 10% to increase hit rate of prediction
+            delay = Math.Min(maxWaitingTime, delay * 1.1f);
+
+            updateScheduler.Invoke(delay, DelayType.KeepFastest);
+        }
+
+        private void StartParserTask()
+        {
+            lock (currentParserTaskLock)
+            {
+                if (currentParserTask is not null)
+                    return;
+
+                currentParserTask =
+                    ConcurrentTaskDispatcher.Instance.Enqueue(async () =>
+                    {
+                        string richText;
+
+                        try
+                        {
+                            richText = hintParser.ParseToMessage(hintCollection);
+
+                            mainThreadDispatcher.Dispatch(() =>
+                            {
+                                try
+                                {
+                                    // If destroyed while waiting for main thread, skip the update
+                                    if (this.isDestructed)
+                                        return;
+
+                                    SendHint(richText);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Logger.Instance.Error(ex);
+                                }
+                                finally
+                                {
+                                    lock (currentParserTaskLock)
+                                    {
+                                        currentParserTask = null; // Does this in main thread
+                                    }
+
+                                    updateScheduler.Resume(); // Resume action after the parser task is finishing
+                                }
+                            });
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Instance.Error(ex);
+
+                            lock (currentParserTaskLock)
+                            {
+                                currentParserTask = null;
+                            }
+
+                            updateScheduler.Resume(); // Resume action if parser or main thread dispatcher failed
+
+                            return Task.CompletedTask;
+                        }
+
+                        return Task.CompletedTask;
+                    });
+            }
+        }
+
+        private void SendHint(string text)
+        {
+            IDisplayOutput[] outputsSnapshot;
+
+            lock (displayOutputsLock)
+            {
+                outputsSnapshot = displayOutputs.ToArray();
+            }
+
+            var arg = new DisplayOutputArg(this, text);
+            foreach (IDisplayOutput output in outputsSnapshot)
+            {
+                try
+                {
+                    output.ShowHint(arg);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Instance.Error(ex);
+                }
+            }
+        }
     }
 }

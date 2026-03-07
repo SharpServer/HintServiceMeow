@@ -1,29 +1,64 @@
-﻿using HintServiceMeow.Core.Enum;
-using HintServiceMeow.Core.Models.Hints;
-using HintServiceMeow.Core.Utilities;
-using System;
-using System.Runtime.CompilerServices;
-
 namespace HintServiceMeow.Core.Extension
 {
+    using System;
+    using System.Runtime.CompilerServices;
+    using System.Threading;
+    using System.Threading.Tasks;
+    using HintServiceMeow.Core.Models.Hints;
+
+    /// <summary>
+    /// Provides extension methods for <see cref="AbstractHint"/> to schedule timed visibility changes.
+    /// </summary>
     public static class HintExtension
     {
-        private static readonly ConditionalWeakTable<AbstractHint, TaskScheduler> HideTimers = new();
+        private static readonly object DictLock = new object();
+        private static readonly ConditionalWeakTable<AbstractHint, CancellationTokenSource> HideTimers = new();
 
         /// <summary>
         /// Set Hint.Hide to true after a delay. If a hiding task is in progress, it will be reset.
         /// </summary>
+        /// <param name="hint">The hint to hide.</param>
+        /// <param name="delay">How much time in seconds to wait until hiding the hint.</param>
         public static void HideAfter(this AbstractHint hint, float delay)
         {
-            if (!HideTimers.TryGetValue(hint, out TaskScheduler scheduler))
+            lock (DictLock)
             {
-                scheduler = new TaskScheduler();
-                scheduler.Start(TimeSpan.Zero, () => hint.Hide = true);
+                if (HideTimers.TryGetValue(hint, out CancellationTokenSource oldCts))
+                {
+                    oldCts.Cancel();
+                    oldCts.Dispose();
+                    HideTimers.Remove(hint);
+                }
 
-                HideTimers.Add(hint, scheduler);
+                var cts = new CancellationTokenSource();
+                HideTimers.Add(hint, cts);
+                _ = HideAfterAsync(hint, delay, cts.Token);
             }
+        }
 
-            scheduler.Invoke(delay, DelayType.Override);
+        private static async Task HideAfterAsync(AbstractHint hint, float delay, CancellationToken token)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(delay), token);
+                hint.Hide = true;
+            }
+            catch (OperationCanceledException)
+            {
+                // Task was cancelled, do nothing
+            }
+            finally
+            {
+                lock (DictLock)
+                {
+                    if (HideTimers.TryGetValue(hint, out var current)
+                        && current.Token == token)
+                    {
+                        current.Dispose();
+                        HideTimers.Remove(hint);
+                    }
+                }
+            }
         }
     }
 }

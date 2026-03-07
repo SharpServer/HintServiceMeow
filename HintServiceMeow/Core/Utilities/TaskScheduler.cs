@@ -1,150 +1,231 @@
-﻿using HintServiceMeow.Core.Enum;
-using HintServiceMeow.Core.Utilities.Tools;
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-
-namespace HintServiceMeow.Core.Utilities
+﻿namespace HintServiceMeow.Core.Utilities
 {
+    using System;
+    using System.Threading;
+    using System.Threading.Tasks;
+    using HintServiceMeow.Core.Enum;
+    using HintServiceMeow.Core.Utilities.Tools;
+
     internal class TaskScheduler : Interface.ITaskScheduler, Interface.IDestructible
     {
-        private readonly ReaderWriterLockSlim _actionTimeLock = new();
+        private readonly ReaderWriterLockSlim schedulerLock = new();
 
-        private Action _action;
-        private DateTime _scheduledActionTime; // Indicate when the timer will begin trying invoking the action
-        private TimeSpan _interval; // Minimum time between two actions
-        private DateTime _startTimeStamp; // Used to calculate elapsed time since last action, = DateTime.MinValue if there's no last action.
-        private TimeSpan _elapsed; // Time elapsed since last action, does not include the time when the scheduler is paused.
-        private bool _paused = false;
-        private PeriodicRunner runner;
-        public bool IsPaused => _paused;
+        private readonly PeriodicRunner runner;
+
+        private Func<bool> task;
+        private DateTime scheduledActionTime; // Indicate when the timer will begin trying invoking the action
+        private TimeSpan interval; // Minimum time between two actions
+        private DateTime startTimeStamp; // Used to calculate elapsed time since last action, = DateTime.MinValue if there's no last action.
+        private TimeSpan elapsed; // Time elapsed since last action, does not include the time when the scheduler is paused.
+        private bool paused;
+
+        public TaskScheduler(int tickRate = 30)
+        {
+            interval = TimeSpan.FromSeconds(0);
+            task = () => true; // Default empty action
+            startTimeStamp = DateTime.Now;
+
+            runner = PeriodicRunner.Start(PeriodicRunnerMethod, TimeSpan.FromSeconds(1.0 / tickRate));
+        }
+
+        public bool InvokeUntilSuccess { get; set; }
+
+        public bool IsPaused => paused;
 
         /// <summary>
-        /// Time elapsed since last action. Does not include the time when the scheduler is paused.
+        /// Gets the time elapsed since last action. Does not include the time when the scheduler is paused.
         /// If there's no last action, it is DateTime.Now - DateTime.MinValue.
         /// </summary>
         public TimeSpan Elapsed
         {
             get
             {
-                _actionTimeLock.EnterWriteLock();
+                schedulerLock.EnterWriteLock();
                 try
                 {
                     if (IsPaused)
-                        return _elapsed; // Do not calculate elapsed time during paused period
+                        return elapsed; // Do not calculate elapsed time during paused period
 
                     CalculateElapsedTime();
-                    return _elapsed;
+                    return elapsed;
                 }
                 finally
                 {
-                    _actionTimeLock.ExitWriteLock();
+                    schedulerLock.ExitWriteLock();
                 }
             }
+
             private set
             {
-                _actionTimeLock.EnterWriteLock();
+                schedulerLock.EnterWriteLock();
                 try
                 {
-                    _elapsed = value; // Set elapsed time
-                    _startTimeStamp = DateTime.Now; // Reset time stamp
+                    elapsed = value; // Set elapsed time
+                    startTimeStamp = DateTime.Now; // Reset time stamp
                 }
                 finally
                 {
-                    _actionTimeLock.ExitWriteLock();
+                    schedulerLock.ExitWriteLock();
                 }
             }
         }
+
+        public TimeSpan MinInterval
+        {
+            get
+            {
+                schedulerLock.EnterReadLock();
+                try
+                {
+                    return interval;
+                }
+                finally
+                {
+                    schedulerLock.ExitReadLock();
+                }
+            }
+
+            set
+            {
+                schedulerLock.EnterWriteLock();
+                try
+                {
+                    if (value <= TimeSpan.Zero)
+                        interval = TimeSpan.Zero;
+                    else
+                        interval = value;
+                }
+                finally
+                {
+                    schedulerLock.ExitWriteLock();
+                }
+            }
+        }
+
+        public bool IsReadyForNextAction => Elapsed >= interval;
 
         private DateTime ScheduledActionTime
         {
             get
             {
-                _actionTimeLock.EnterReadLock();
+                schedulerLock.EnterReadLock();
                 try
                 {
-                    return _scheduledActionTime;
+                    return scheduledActionTime;
                 }
                 finally
                 {
-                    _actionTimeLock.ExitReadLock();
+                    schedulerLock.ExitReadLock();
                 }
             }
+
             set
             {
-                _actionTimeLock.EnterWriteLock();
+                schedulerLock.EnterWriteLock();
                 try
                 {
-                    _scheduledActionTime = value;
+                    scheduledActionTime = value;
                 }
                 finally
                 {
-                    _actionTimeLock.ExitWriteLock();
+                    schedulerLock.ExitWriteLock();
                 }
             }
-        }
-
-        public bool IsReadyForNextAction => Elapsed >= _interval;
-
-        public TaskScheduler(int tickRate = 30)
-        {
-            this._interval = TimeSpan.FromSeconds(0);
-            this._action = () => { }; // Default empty action
-            _startTimeStamp = DateTime.MinValue; // Default zero interval
-
-            runner = PeriodicRunner.Start(PeriodicRunnerMethod, TimeSpan.FromSeconds(1.0 / tickRate));
         }
 
         /// <summary>
-        /// Not thread safe
+        /// Not thread safe.
         /// </summary>
         void Interface.IDestructible.Destruct()
         {
             runner.Dispose();
+            schedulerLock.Dispose();
         }
 
         /// <summary>
         /// Start the scheduler with a specified interval and action.
         /// </summary>
-        /// <param name="interval">Minimum interval between each action</param>
-        /// <param name="action">The action to invoke</param>
-        /// <exception cref="ArgumentOutOfRangeException"></exception>
-        /// <exception cref="ArgumentNullException"></exception>
-        public void Start(TimeSpan interval, Action action)
+        /// <param name="newInterval">Minimum interval between each action.</param>
+        /// <param name="newAction">The action to invoke.</param>
+        /// <exception cref="ArgumentNullException">newAction is null.</exception>
+        public void Start(TimeSpan newInterval, Action newAction)
         {
-            _actionTimeLock.EnterWriteLock();
+            schedulerLock.EnterWriteLock();
             try
             {
-                if (interval <= TimeSpan.Zero)
-                    interval = TimeSpan.Zero;
-                _interval = interval;
-                _action = action ?? throw new ArgumentNullException(nameof(action), "Action cannot be null.");
+                if (newInterval <= TimeSpan.Zero)
+                    newInterval = TimeSpan.Zero;
+
+                interval = newInterval;
+
+                if (newAction is null)
+                    throw new ArgumentNullException(nameof(newAction), "Action cannot be null.");
+
+                task = () =>
+                {
+                    newAction();
+                    return true; // Return true to indicate success
+                };
+
+                // Reset Elapsed
+                elapsed = TimeSpan.Zero;
+                startTimeStamp = DateTime.Now;
+
+                // Reset scheduled action time
+                scheduledActionTime = DateTime.MaxValue;
             }
             finally
             {
-                _actionTimeLock.ExitWriteLock();
+                schedulerLock.ExitWriteLock();
             }
+        }
 
-            // Reset the timer
-            Elapsed = TimeSpan.Zero;
-            ScheduledActionTime = DateTime.MaxValue; // Reset scheduled action time
+        /// <summary>
+        /// Start the scheduler with a specified interval and action.
+        /// </summary>
+        /// <param name="newInterval">Minimum interval between each action.</param>
+        /// <param name="newAction">The action to invoke.</param>
+        /// <exception cref="ArgumentNullException">newAction is null.</exception>
+        public void Start(TimeSpan newInterval, Func<bool> newAction)
+        {
+            schedulerLock.EnterWriteLock();
+            try
+            {
+                if (newInterval <= TimeSpan.Zero)
+                    newInterval = TimeSpan.Zero;
+
+                // Set new interval and action
+                interval = newInterval;
+                task = newAction ?? throw new ArgumentNullException(nameof(newAction), "Action cannot be null.");
+
+                // Reset Elapsed
+                elapsed = TimeSpan.Zero;
+                startTimeStamp = DateTime.Now;
+
+                // Reset scheduled action time
+                scheduledActionTime = DateTime.MaxValue;
+            }
+            finally
+            {
+                schedulerLock.ExitWriteLock();
+            }
         }
 
         /// <summary>
         /// Schedule an action to be invoked after a specified delay. The action will be invoked when the elapsed time reaches the interval limit and when scheduled action time is reached.
         /// </summary>
-        /// <param name="delay">How long scheduler should wait before trying to invoek the action</param>
-        /// <param name="delayType">What to do if there's already a scheduled action</param>
+        /// <param name="delay">How long scheduler should wait before trying to invoke the action.</param>
+        /// <param name="delayType">What to do if there's already a scheduled action.</param>
         public void Invoke(float delay = -1f, DelayType delayType = DelayType.Override)
         {
-            _actionTimeLock.EnterWriteLock();
+            schedulerLock.EnterWriteLock();
 
             try
             {
                 // If there's not scheduled time, then set it to the current time plus delay
-                if (_scheduledActionTime == DateTime.MaxValue)
+                if (scheduledActionTime == DateTime.MaxValue)
                 {
-                    _scheduledActionTime = DateTime.Now.AddSeconds(delay);
+                    scheduledActionTime = DateTime.Now.AddSeconds(delay);
                     return;
                 }
 
@@ -152,21 +233,23 @@ namespace HintServiceMeow.Core.Utilities
                 switch (delayType)
                 {
                     case DelayType.KeepFastest:
-                        if (_scheduledActionTime > DateTime.Now.AddSeconds(delay))
-                            _scheduledActionTime = DateTime.Now.AddSeconds(delay);
+                        if (scheduledActionTime > DateTime.Now.AddSeconds(delay))
+                            scheduledActionTime = DateTime.Now.AddSeconds(delay);
                         break;
                     case DelayType.KeepSlowest:
-                        if (_scheduledActionTime < DateTime.Now.AddSeconds(delay))
-                            _scheduledActionTime = DateTime.Now.AddSeconds(delay);
+                        if (scheduledActionTime < DateTime.Now.AddSeconds(delay))
+                            scheduledActionTime = DateTime.Now.AddSeconds(delay);
                         break;
                     case DelayType.Override:
-                        _scheduledActionTime = DateTime.Now.AddSeconds(delay);
+                        scheduledActionTime = DateTime.Now.AddSeconds(delay);
                         break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(delayType), delayType, null);
                 }
             }
             finally
             {
-                _actionTimeLock.ExitWriteLock();
+                schedulerLock.ExitWriteLock();
             }
         }
 
@@ -175,55 +258,56 @@ namespace HintServiceMeow.Core.Utilities
         /// </summary>
         public void Stop()
         {
-            _actionTimeLock.EnterWriteLock();
+            schedulerLock.EnterWriteLock();
             try
             {
                 // Reset the action and interval
-                _action = () => { }; // Default empty action
-                _interval = TimeSpan.FromSeconds(0);
-                _scheduledActionTime = DateTime.MaxValue; // Reset scheduled action time
+                task = () => true; // Default empty action
+                interval = TimeSpan.FromSeconds(0);
+                scheduledActionTime = DateTime.MaxValue; // Reset scheduled action time
+
+                // Reset Elapsed
+                elapsed = TimeSpan.Zero;
+                startTimeStamp = DateTime.Now;
             }
             finally
             {
-                _actionTimeLock.ExitWriteLock();
+                schedulerLock.ExitWriteLock();
             }
-
-            Elapsed = TimeSpan.Zero; // Reset elapsed time
-            ScheduledActionTime = DateTime.MaxValue; // Reset scheduled action time
         }
 
         public void Pause()
         {
-            _actionTimeLock.EnterWriteLock();
+            schedulerLock.EnterWriteLock();
             try
             {
-                if (_paused)
+                if (paused)
                     return;
 
                 CalculateElapsedTime(); // Add time to the timer before pausing
 
-                _paused = true;
+                paused = true;
             }
             finally
             {
-                _actionTimeLock.ExitWriteLock();
+                schedulerLock.ExitWriteLock();
             }
         }
 
         public void Resume()
         {
-            _actionTimeLock.EnterWriteLock();
+            schedulerLock.EnterWriteLock();
             try
             {
-                if (!_paused)
+                if (!paused)
                     return;
 
-                _paused = false;
-                _startTimeStamp = DateTime.Now; // Reset time stamp
+                paused = false;
+                startTimeStamp = DateTime.Now; // Reset time stamp
             }
             finally
             {
-                _actionTimeLock.ExitWriteLock();
+                schedulerLock.ExitWriteLock();
             }
         }
 
@@ -234,36 +318,68 @@ namespace HintServiceMeow.Core.Utilities
         {
             try
             {
-                //Reset timer
-                Elapsed = TimeSpan.Zero; //Reset Elapsed Time
-                ScheduledActionTime = DateTime.MaxValue; //Reset scheduled action time
+                // start action
+                if (task.Invoke() || !InvokeUntilSuccess)
+                {
+                    // Reset Timer
+                    schedulerLock.EnterWriteLock();
+                    try
+                    {
+                        // Reset Elapsed
+                        elapsed = TimeSpan.Zero;
+                        startTimeStamp = DateTime.Now;
 
-                //start action
-                _action.Invoke();
+                        // Reset timer
+                        scheduledActionTime = DateTime.MaxValue;
+                    }
+                    finally
+                    {
+                        schedulerLock.ExitWriteLock();
+                    }
+                }
             }
             catch (Exception ex)
             {
                 Logger.Instance.Error(ex);
+
+                if (!InvokeUntilSuccess)
+                {
+                    // Reset Timer
+                    schedulerLock.EnterWriteLock();
+                    try
+                    {
+                        // Reset Elapsed
+                        elapsed = TimeSpan.Zero;
+                        startTimeStamp = DateTime.Now;
+
+                        // Reset timer
+                        scheduledActionTime = DateTime.MaxValue;
+                    }
+                    finally
+                    {
+                        schedulerLock.ExitWriteLock();
+                    }
+                }
             }
         }
 
         private void CalculateElapsedTime()
         {
             // If the scheduled action time is in the future, skip
-            if (_startTimeStamp > DateTime.Now)
+            if (startTimeStamp > DateTime.Now)
                 return;
 
-            _elapsed += DateTime.Now - _startTimeStamp; // Calculate elapsed time
-            _startTimeStamp = DateTime.Now; //Reset time stamp
+            elapsed += DateTime.Now - startTimeStamp; // Calculate elapsed time
+            startTimeStamp = DateTime.Now; // Reset time stamp
         }
 
-        private async Task PeriodicRunnerMethod()
+        private Task PeriodicRunnerMethod()
         {
-            //Check if the action should be executed, if not, continue, else, break the loop
+            // Check if the action should be executed, if not, continue, else, break the loop
             try
             {
-                if (!IsReadyForNextAction || ScheduledActionTime == DateTime.MaxValue || DateTime.Now < ScheduledActionTime || IsPaused)
-                    return;
+                if (!IsReadyForNextAction || ScheduledActionTime == DateTime.MaxValue || ScheduledActionTime > DateTime.Now || IsPaused)
+                    return Task.CompletedTask;
             }
             catch (Exception ex)
             {
@@ -271,6 +387,8 @@ namespace HintServiceMeow.Core.Utilities
             }
 
             InvokeAction();
+
+            return Task.CompletedTask;
         }
     }
 }

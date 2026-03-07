@@ -1,57 +1,100 @@
-﻿using HintServiceMeow.Core.Models.Hints;
-using System;
-using System.Collections.Generic;
-using System.Collections.Specialized;
-using System.Linq;
-
 namespace HintServiceMeow.Core.Models
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Collections.Specialized;
+    using System.Linq;
+    using HintServiceMeow.Core.Models.Hints;
+
     /// <summary>
     /// The collection of hints. This class is used to store and manage hints in PlayerDisplay.
     /// HintList are used for API and HintGroup are used for internal usage.
     /// </summary>
     public class HintCollection : INotifyCollectionChanged
     {
-        private readonly object _lock = new object();
-        private readonly Dictionary<string, List<AbstractHint>> _hintGroups = new Dictionary<string, List<AbstractHint>>();
+        private readonly object collectionLock = new();
+        private readonly Dictionary<string, List<AbstractHint>> hintGroups = new();
 
-        public event NotifyCollectionChangedEventHandler CollectionChanged;
+        private IReadOnlyList<IReadOnlyList<AbstractHint>>? allGroupsCache;
+        private IReadOnlyList<AbstractHint>? allHintsCache;
 
-        private void OnCollectionChanged(NotifyCollectionChangedEventArgs argument)
-        {
-            CollectionChanged?.Invoke(this, argument);
-        }
+        /// <summary>
+        /// Occurs when the hint collection is modified (hints added, removed, or cleared).
+        /// </summary>
+        public event NotifyCollectionChangedEventHandler? CollectionChanged;
 
+        /// <summary>
+        /// Gets a read-only list of all hint groups, where each group corresponds to a registered assembly.
+        /// </summary>
         public IReadOnlyList<IReadOnlyList<AbstractHint>> AllGroups
         {
             get
             {
-                lock (_lock)
+                lock (collectionLock)
                 {
-                    return _hintGroups.Values.Select(x => x.ToList().AsReadOnly()).ToList().AsReadOnly();
+                    if (allGroupsCache == null)
+                        allGroupsCache = hintGroups.Values.Select(x => x.ToList().AsReadOnly()).ToList().AsReadOnly();
+
+                    return allGroupsCache;
                 }
             }
         }
 
+        /// <summary>
+        /// Gets a read-only flat list of all hints across all groups.
+        /// </summary>
         public IReadOnlyList<AbstractHint> AllHints
         {
             get
             {
-                lock (_lock)
+                lock (collectionLock)
                 {
-                    return _hintGroups.Values.SelectMany(x => x).ToList().AsReadOnly();
+                    if (allHintsCache == null)
+                        allHintsCache = hintGroups.Values.SelectMany(x => x).ToList().AsReadOnly();
+
+                    return allHintsCache;
                 }
             }
         }
 
+        /// <summary>
+        /// Retrieves hints belonging to the specified assembly, or all hints if <paramref name="assemblyName"/> is <see langword="null"/>.
+        /// </summary>
+        /// <param name="assemblyName">The assembly name used to filter hints, or <see langword="null"/> to retrieve all hints.</param>
+        /// <returns>A read-only list of matching hints.</returns>
+        public IReadOnlyList<AbstractHint> GetHints(string? assemblyName)
+        {
+            lock (collectionLock)
+            {
+                if (assemblyName is null)
+                    return hintGroups.Values.SelectMany(x => x).ToList().AsReadOnly();
+
+                if (!hintGroups.TryGetValue(assemblyName, out List<AbstractHint> collection))
+                    return new List<AbstractHint>().AsReadOnly();
+
+                return collection.ToList().AsReadOnly();
+            }
+        }
+
+        /// <summary>
+        /// Retrieves hints belonging to the specified assembly that satisfy the given predicate.
+        /// </summary>
+        /// <param name="assemblyName">The assembly name used to filter hints.</param>
+        /// <param name="predicate">A function to further filter hints within the assembly group.</param>
+        /// <returns>A read-only list of hints that match both the assembly name and the predicate.</returns>
+        public IReadOnlyList<AbstractHint> GetHints(string assemblyName, Func<AbstractHint, bool> predicate)
+        {
+            return GetHints(assemblyName).Where(predicate).ToList().AsReadOnly();
+        }
+
         internal void AddHint(string assemblyName, AbstractHint hint)
         {
-            lock (_lock)
+            lock (collectionLock)
             {
-                if (!_hintGroups.TryGetValue(assemblyName, out List<AbstractHint> collection))
+                if (!hintGroups.TryGetValue(assemblyName, out List<AbstractHint> collection))
                 {
                     collection = new List<AbstractHint>();
-                    _hintGroups.Add(assemblyName, collection);
+                    hintGroups.Add(assemblyName, collection);
                 }
 
                 collection.Add(hint);
@@ -60,27 +103,33 @@ namespace HintServiceMeow.Core.Models
             OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, hint));
         }
 
-        internal bool RemoveHint(string assemblyName, AbstractHint hint)
+        internal bool RemoveHint(string? assemblyName, AbstractHint hint)
         {
             bool success = false;
 
-            lock (_lock)
+            lock (collectionLock)
             {
-                //If assemblyName is null, remove the hint from all groups.
+                // If assemblyName is null, remove the hint from all groups.
                 if (assemblyName is null)
                 {
-                    foreach (var collection in _hintGroups.Values)
+                    foreach (List<AbstractHint>? collection in hintGroups.Values)
                     {
                         if (collection.Remove(hint))
                         {
                             success = true;
                         }
                     }
+
+                    // Remove all empty groups.
+                    foreach (string? key in hintGroups.Where(x => !x.Value.Any()).Select(x => x.Key).ToList())
+                    {
+                        hintGroups.Remove(key);
+                    }
                 }
                 else
                 {
-                    //If assemblyName is not null, remove the hint from the specified group.
-                    if (!_hintGroups.TryGetValue(assemblyName, out List<AbstractHint> assemblyCollection))
+                    // If assemblyName is not null, remove the hint from the specified group.
+                    if (!hintGroups.TryGetValue(assemblyName, out List<AbstractHint> assemblyCollection))
                         return false;
 
                     if (assemblyCollection.Remove(hint))
@@ -90,7 +139,7 @@ namespace HintServiceMeow.Core.Models
 
                     if (!assemblyCollection.Any())
                     {
-                        _hintGroups.Remove(assemblyName);
+                        hintGroups.Remove(assemblyName);
                     }
                 }
             }
@@ -103,16 +152,16 @@ namespace HintServiceMeow.Core.Models
             return success;
         }
 
-        internal List<AbstractHint> RemoveHint(string assemblyName, Func<AbstractHint, bool> predicate)
+        internal List<AbstractHint> RemoveHint(string? assemblyName, Func<AbstractHint, bool> predicate)
         {
-            List<AbstractHint> updatedHints = new List<AbstractHint>();
+            List<AbstractHint> updatedHints = [];
 
-            lock (_lock)
+            lock (collectionLock)
             {
-                //If assemblyName is null, remove all hints that satisfy the predicate from all groups.
+                // If assemblyName is null, remove all hints that satisfy the predicate from all groups.
                 if (assemblyName is null)
                 {
-                    foreach (var collection in _hintGroups.Values)
+                    foreach (List<AbstractHint>? collection in hintGroups.Values)
                     {
                         for (int i = 0; i < collection.Count; i++)
                         {
@@ -121,19 +170,23 @@ namespace HintServiceMeow.Core.Models
                             if (!predicate(hint))
                                 continue;
 
-                            //If the hint satisfies the predicate, remove it from the collection.
-                            if (collection.Remove(hint))
-                            {
-                                updatedHints.Add(hint);
-                                i--;
-                            }
+                            // If the hint satisfies the predicate, remove it from the collection.
+                            collection.RemoveAt(i);
+                            updatedHints.Add(hint);
+                            i--;
                         }
+                    }
+
+                    // Remove all empty groups.
+                    foreach (string? key in hintGroups.Where(x => !x.Value.Any()).Select(x => x.Key).ToList())
+                    {
+                        hintGroups.Remove(key);
                     }
                 }
                 else
                 {
-                    //If assemblyName is not null, remove all hints that satisfy the predicate from the specified group.
-                    if (!_hintGroups.TryGetValue(assemblyName, out List<AbstractHint> assemblyCollection))
+                    // If assemblyName is not null, remove all hints that satisfy the predicate from the specified group.
+                    if (!hintGroups.TryGetValue(assemblyName, out List<AbstractHint> assemblyCollection))
                         return updatedHints;
 
                     for (int i = 0; i < assemblyCollection.Count; i++)
@@ -152,7 +205,7 @@ namespace HintServiceMeow.Core.Models
 
                     if (!assemblyCollection.Any())
                     {
-                        _hintGroups.Remove(assemblyName);
+                        hintGroups.Remove(assemblyName);
                     }
                 }
             }
@@ -168,48 +221,39 @@ namespace HintServiceMeow.Core.Models
             return updatedHints;
         }
 
-        internal void ClearHints(string assemblyName)
+        internal void ClearHints(string? assemblyName)
         {
-            lock (_lock)
+            lock (collectionLock)
             {
-                //If assemblyName is null, clear all groups.
+                // If assemblyName is null, clear all groups.
                 if (assemblyName is null)
                 {
-                    foreach (var collection in _hintGroups.Values)
-                    {
-                        collection.Clear();
-                    }
+                    hintGroups.Clear();
                 }
                 else
                 {
-                    //If assemblyName is not null, clear the specified group.
-                    if (!_hintGroups.TryGetValue(assemblyName, out List<AbstractHint> assemblyCollection))
+                    // If assemblyName is not null, clear the specified group.
+                    if (!hintGroups.TryGetValue(assemblyName, out List<AbstractHint> assemblyCollection))
                         return;
 
                     assemblyCollection.Clear();
+                    hintGroups.Remove(assemblyName);
                 }
             }
 
             OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
         }
 
-        public IReadOnlyList<AbstractHint> GetHints(string assemblyName)
+        private void OnCollectionChanged(NotifyCollectionChangedEventArgs argument)
         {
-            lock (_lock)
+            lock (collectionLock)
             {
-                if (assemblyName is null)
-                    return _hintGroups.Values.SelectMany(x => x).ToList().AsReadOnly();
-
-                if (!_hintGroups.TryGetValue(assemblyName, out List<AbstractHint> collection))
-                    return new List<AbstractHint>().AsReadOnly();
-
-                return collection.ToList().AsReadOnly();
+                // Clear caches on any collection change.
+                allGroupsCache = null;
+                allHintsCache = null;
             }
-        }
 
-        public IReadOnlyList<AbstractHint> GetHints(string assemblyName, Func<AbstractHint, bool> predicate)
-        {
-            return GetHints(assemblyName).Where(predicate).ToList().AsReadOnly();
+            CollectionChanged?.Invoke(this, argument);
         }
     }
 }

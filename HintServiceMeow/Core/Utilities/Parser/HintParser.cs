@@ -1,190 +1,245 @@
-﻿using HintServiceMeow.Core.Enum;
-using HintServiceMeow.Core.Interface;
-using HintServiceMeow.Core.Models;
-using HintServiceMeow.Core.Models.Hints;
-using HintServiceMeow.Core.Utilities.Pools;
-using HintServiceMeow.Core.Utilities.Tools;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
-
-namespace HintServiceMeow.Core.Utilities.Parser
+﻿namespace HintServiceMeow.Core.Utilities.Parser
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Text;
+    using HintServiceMeow.Core.Enum;
+    using HintServiceMeow.Core.Interface;
+    using HintServiceMeow.Core.Models;
+    using HintServiceMeow.Core.Models.Hints;
+    using HintServiceMeow.Core.Models.Parser;
+    using HintServiceMeow.Core.Utilities.Pools;
+    using HintServiceMeow.Core.Utilities.Tools;
+
     /// <summary>
-    /// Used to parse AbstractHint to rich text message
+    /// Used to parse AbstractHint to rich text message.
     /// </summary>
     internal class HintParser : IHintParser
     {
         private const string PlaceholderTop = "<line-height=0><voffset=9999>P</voffset>";
         private const string PlaceholderBottom = "<line-height=0><voffset=-9999>P</voffset>";
 
-        private static readonly Regex IllegalTagRegex = new(
-            @"<line-height=[^>]*>|<voffset=[^>]*>|<pos=[^>]*>|</voffset>|{|}",
-            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        private readonly ICache<Guid, ValueTuple<float, float>> dynamicHintPositionCache;
+        private readonly ICoordinateTools coordinateTool;
+        private readonly IPool<StringBuilder> stringBuilderPool;
+        private readonly IPool<RichTextParser> richTextParserPool;
+        private readonly IPool<Hint> hintPool;
+        private readonly List<Hint> rentedHints = new List<Hint>(128);
 
-        private readonly ICache<Guid, ValueTuple<float, float>> _dynamicHintPositionCache;
-        private readonly ICoordinateTools _coordinateTool;
-        private readonly IPool<StringBuilder> _stringBuilderPool;
-        private readonly IPool<RichTextParser> _richTextParserPool;
+        // For ParseToMessage method
+        private readonly List<TextArea> dynamicHintColliders = new(128);
+        private readonly List<Hint> orderedHintGroups = new(128); // Use Null to seperate groups
+        private readonly List<HintSortData> sortBuffer = new(128);
+        private readonly List<Hint> orderedHints = new(128);
+        private readonly List<DynamicHint> dynamicHints = new(128);
+
+        // For ParseToHint method
+        private readonly Queue<ValueTuple<float, float>> queue = new();
+        private readonly HashSet<ValueTuple<float, float>> visited = new();
 
         public HintParser(
-            ICache<Guid, ValueTuple<float, float>> dynamicHintPositionCache = null,
-            ICoordinateTools coordinateTool = null,
-            IPool<StringBuilder> stringBuilderPool = null,
-            IPool<RichTextParser> richTextParserPool = null
-            )
+            ICache<Guid, ValueTuple<float, float>>? dynamicHintPositionCache = null,
+            ICoordinateTools? coordinateTool = null,
+            IPool<StringBuilder>? stringBuilderPool = null,
+            IPool<RichTextParser>? richTextParserPool = null,
+            IPool<Hint>? hintPool = null)
         {
-            _dynamicHintPositionCache = dynamicHintPositionCache ?? new Cache<Guid, ValueTuple<float, float>>(500);
-            _coordinateTool = coordinateTool ?? new CoordinateTools();
-            _stringBuilderPool = stringBuilderPool ?? StringBuilderPool.Instance;
-            _richTextParserPool = richTextParserPool ?? RichTextParserPool.Instance;
+            this.dynamicHintPositionCache = dynamicHintPositionCache ?? new Cache<Guid, ValueTuple<float, float>>(500);
+            this.coordinateTool = coordinateTool ?? new CoordinateTools();
+            this.stringBuilderPool = stringBuilderPool ?? StringBuilderPool.Instance;
+            this.richTextParserPool = richTextParserPool ?? RichTextParserPool.Instance;
+            this.hintPool = hintPool ?? HintPool.Instance;
         }
 
         public string ParseToMessage(HintCollection collection)
         {
             IReadOnlyList<IReadOnlyList<AbstractHint>> allGroups = collection.AllGroups;
 
-            List<TextArea> dynamicHintColliders = new List<TextArea>();
-            foreach (AbstractHint h in allGroups.SelectMany(g => g))
+            for (int i = 0; i < allGroups.Count; i++)
             {
-                if (h is Hint hint && !hint.Hide && !string.IsNullOrEmpty(hint.Content.GetText()))
-                    dynamicHintColliders.Add(ParseToArea(hint));
+                for (int j = 0; j < allGroups[i].Count; j++)
+                {
+                    if (allGroups[i][j] is Hint { Hide: false } hint && !string.IsNullOrEmpty(hint.Content.GetText()))
+                        dynamicHintColliders.Add(ParseToArea(hint));
+                }
             }
 
-            List<List<Hint>> orderedHintGroups = new();
-
-            foreach (IReadOnlyList<AbstractHint> group in allGroups)
+            for (int i = 0; i < allGroups.Count; i++)
             {
-                //Group by type
-                List<Hint> orderedHints = new List<Hint>();
-                List<DynamicHint> dynamicHints = new List<DynamicHint>();
-
-                foreach (var item in group)
+                if (allGroups[i].Count == 0)
                 {
-                    //Filter invisible hints
-                    if (item is null || item.Hide || string.IsNullOrEmpty(item.Content.GetText()))
+                    continue; // Don't add empty group
+                }
+
+                for (int j = 0; j < allGroups[i].Count; j++)
+                {
+                    // Filter invisible hints
+                    if (allGroups[i][j] is null || allGroups[i][j].Hide || string.IsNullOrEmpty(allGroups[i][j].Content.GetText()))
                         continue;
 
-                    if (item is Hint s)
+                    if (allGroups[i][j] is Hint s)
                         orderedHints.Add(s);
-                    else if (item is DynamicHint d)
+                    else if (allGroups[i][j] is DynamicHint d)
                         dynamicHints.Add(d);
                 }
 
-                //Convert Dynamic Hint
-                if (dynamicHints.Any())
+                // Convert Dynamic Hint
+                Comparison<DynamicHint> dynamicHintPriorityComparer = (a, b) => b.Priority - a.Priority;
+                dynamicHints.Sort(dynamicHintPriorityComparer);
+
+                for (int j = 0; j < dynamicHints.Count; j++)
                 {
-                    dynamicHints.Sort((a, b) => b.Priority - a.Priority);
+                    Hint? handledDH = ParseToHint(dynamicHints[j], dynamicHintColliders);
 
-                    foreach (DynamicHint dynamicHint in dynamicHints)
-                    {
-                        Hint handledDH = ParseToHint(dynamicHint, dynamicHintColliders);
+                    if (handledDH is null)
+                        continue;
 
-                        if (handledDH is null)
-                            continue;
-
-                        dynamicHintColliders.Add(ParseToArea(handledDH));
-                        orderedHints.Add(handledDH);
-                    }
+                    dynamicHintColliders.Add(ParseToArea(handledDH));
+                    orderedHints.Add(handledDH);
                 }
 
-                List<(Hint hint, float y)> temp = orderedHints
-                    .Select(h => (hint: h, y: _coordinateTool.GetYCoordinate(h, HintVerticalAlign.Bottom)))
-                    .ToList();
+                for (int j = 0; j < orderedHints.Count; j++)
+                {
+                    sortBuffer.Add(new HintSortData(orderedHints[j], coordinateTool.GetYCoordinate(orderedHints[j], HintVerticalAlign.Bottom)));
+                }
 
-                temp.Sort((a, b) => a.y.CompareTo(b.y));
+                // Sort and add to ordered hint groups
+                sortBuffer.Sort();
 
-                List<Hint> result = temp.Select(x => x.hint).ToList();
+                for (int j = 0; j < sortBuffer.Count; j++)
+                {
+                    orderedHintGroups.Add(sortBuffer[j].Hint);
+                }
 
-                //Sort and add to ordered hint groups
-                orderedHintGroups.Add(result);
+                orderedHintGroups.Add(null!);
+
+                // Reset buffers for next group
+                orderedHints.Clear();
+                dynamicHints.Clear();
+                sortBuffer.Clear();
             }
 
-            StringBuilder messageBuilder = _stringBuilderPool.Rent();
-            const int NetLimit = 65000;
+            StringBuilder messageBuilder = stringBuilderPool.Rent();
 
-            messageBuilder.AppendLine(PlaceholderTop);//Place Holder
+            messageBuilder.AppendLine(PlaceholderTop); // Place Holder
 
-            foreach (List<Hint> hintList in orderedHintGroups)
+            for (int i = 0; i < orderedHintGroups.Count; i++)
             {
-                if (hintList.IsEmpty())
-                    continue;
-
-                foreach (Hint hint in hintList)
+                // When a group ends
+                if (orderedHintGroups[i] is null)
                 {
-                    if (messageBuilder.Length > NetLimit)
-                        break; //Prevent network message from overflow
-
-                    string text = ParseToRichText(hint);
-                    if (!string.IsNullOrEmpty(text))
-                        messageBuilder.Append(text); //ToRichText already added \n at the end
+                    messageBuilder.AppendLine("</align></size></b></i>"); // Make sure one group will not affect another group
+                    continue;
                 }
 
-                if (messageBuilder.Length > NetLimit)
-                    break; //Prevent network message from overflow
-
-                messageBuilder.AppendLine("</align></size></b></i>"); //Make sure one group will not affect another group
+                ParseToRichText(orderedHintGroups[i], messageBuilder);
             }
 
-            messageBuilder.AppendLine(PlaceholderBottom);//Place Holder
+            messageBuilder.AppendLine(PlaceholderBottom); // Place Holder
+
+            // Clear buffer
+            orderedHintGroups.Clear();
+            dynamicHintColliders.Clear();
+
+            // Return rented hints to pool
+            for (int i = 0; i < rentedHints.Count; i++)
+            {
+                hintPool.Return(rentedHints[i]);
+            }
+
+            rentedHints.Clear();
+
             string message = messageBuilder.ToString();
-            _stringBuilderPool.Return(messageBuilder);
+            stringBuilderPool.Return(messageBuilder);
             return message;
         }
 
-        private Hint ParseToHint(DynamicHint dynamicHint, IList<TextArea> colliders)
+        private Hint? ParseToHint(DynamicHint dynamicHint, IList<TextArea> colliders)
         {
-            float dhWidth = _coordinateTool.GetTextWidth(dynamicHint);
-            float dhHeight = _coordinateTool.GetTextHeight(dynamicHint);
+            float dhWidth = coordinateTool.GetTextWidth(dynamicHint);
+            float dhHeight = coordinateTool.GetTextHeight(dynamicHint);
 
-            TextArea DynamicHintToArea(ValueTuple<float, float> tuple) =>
-                new()
-                {
-                    Left = tuple.Item1 - dhWidth / 2 - dynamicHint.LeftMargin,
-                    Right = tuple.Item1 + dhWidth / 2 + dynamicHint.RightMargin,
-                    Top = tuple.Item2 - dhHeight - dynamicHint.TopMargin,
-                    Bottom = tuple.Item2 + dynamicHint.BottomMargin,
-                };
-
-            //Check target position before checking the cache
+            // Check target position before checking the cache
             ValueTuple<float, float> targetCoordinate = ValueTuple.Create(dynamicHint.TargetX, dynamicHint.TargetY);
             TextArea targetArea = DynamicHintToArea(targetCoordinate);
-            if (!colliders.Any(targetArea.HasIntersection))
-            {
-                //Clear previous cached position since the target position is usable again
-                _dynamicHintPositionCache.TryRemove(dynamicHint.Guid, out _);
 
-                return new Hint(dynamicHint, dynamicHint.TargetX, dynamicHint.TargetY);
-            }
+            bool targetAreaAvailable = true;
 
-            if (_dynamicHintPositionCache.TryGet(dynamicHint.Guid, out ValueTuple<float, float> cachedPosition))
+            for (int i = 0; i < colliders.Count; i++)
             {
-                TextArea dhArea = DynamicHintToArea(cachedPosition);
-                if (!colliders.Any(dhArea.HasIntersection))
+                if (targetArea.HasIntersection(colliders[i]))
                 {
-                    return new Hint(dynamicHint, cachedPosition.Item1, cachedPosition.Item2);
+                    targetAreaAvailable = false;
+                    break;
                 }
             }
 
-            //If there's no cached position or cached position is not usable, then find new position
-            Queue<ValueTuple<float, float>> queue = new();
-            HashSet<ValueTuple<float, float>> visited = new();
+            if (targetAreaAvailable)
+            {
+                // Clear previous cached position since the target position is usable again
+                dynamicHintPositionCache.TryRemove(dynamicHint.Guid, out _);
+
+                Hint hint = hintPool.Rent();
+                rentedHints.Add(hint);
+                hint.Set(dynamicHint, dynamicHint.TargetX, dynamicHint.TargetY);
+                return hint;
+            }
+
+            targetAreaAvailable = true;
+            if (dynamicHintPositionCache.TryGet(dynamicHint.Guid, out ValueTuple<float, float> cachedPosition))
+            {
+                TextArea dhArea = DynamicHintToArea(cachedPosition);
+
+                for (int i = 0; i < colliders.Count; i++)
+                {
+                    if (dhArea.HasIntersection(colliders[i]))
+                    {
+                        targetAreaAvailable = false;
+                        break;
+                    }
+                }
+
+                if (targetAreaAvailable)
+                {
+                    Hint hint = hintPool.Rent();
+                    rentedHints.Add(hint);
+                    hint.Set(dynamicHint, cachedPosition.Item1, cachedPosition.Item2);
+                    return hint;
+                }
+            }
+
+            // If there's no cached position or cached position is not usable, then find new position
+            queue.Clear();
+            visited.Clear();
 
             queue.Enqueue(targetCoordinate);
 
             while (queue.TryDequeue(out ValueTuple<float, float> tuple))
             {
-                //The tuple represent bottom center coordinate, Item 1: x, Item 2: y
+                // The tuple represent bottom center coordinate, Item 1: x, Item 2: y
                 if (!visited.Add(tuple))
                     continue;
 
                 TextArea dhArea = DynamicHintToArea(tuple);
-                if (!colliders.Any(dhArea.HasIntersection))
+
+                targetAreaAvailable = true;
+                for (int i = 0; i < colliders.Count; i++)
                 {
-                    _dynamicHintPositionCache.Add(dynamicHint.Guid, tuple);
-                    return new Hint(dynamicHint, tuple.Item1, tuple.Item2);
+                    if (dhArea.HasIntersection(colliders[i]))
+                    {
+                        targetAreaAvailable = false;
+                        break;
+                    }
+                }
+
+                if (targetAreaAvailable)
+                {
+                    dynamicHintPositionCache.Add(dynamicHint.Guid, tuple);
+
+                    Hint hint = hintPool.Rent();
+                    rentedHints.Add(hint);
+                    hint.Set(dynamicHint, tuple.Item1, tuple.Item2);
+                    return hint;
                 }
 
                 if (tuple.Item2 < dynamicHint.BottomBoundary)
@@ -197,84 +252,200 @@ namespace HintServiceMeow.Core.Utilities.Parser
                     queue.Enqueue(ValueTuple.Create(tuple.Item1 - 50, tuple.Item2));
             }
 
-            //Failed to find a position, return according to DynamicHintStrategy
+            // Failed to find a position, return according to DynamicHintStrategy
             if (dynamicHint.Strategy == DynamicHintStrategy.StayInPosition)
             {
-                return new Hint(dynamicHint, dynamicHint.TargetX, dynamicHint.TargetY);
+                Hint hint = hintPool.Rent();
+                rentedHints.Add(hint);
+                hint.Set(dynamicHint, dynamicHint.TargetX, dynamicHint.TargetY);
+                return hint;
             }
 
             // DynamicHintStrategy.Hide
             return null;
+
+            TextArea DynamicHintToArea(ValueTuple<float, float> tuple) =>
+                new()
+                {
+                    Left = tuple.Item1 - (dhWidth / 2) - dynamicHint.LeftMargin,
+                    Right = tuple.Item1 + (dhWidth / 2) + dynamicHint.RightMargin,
+                    Top = tuple.Item2 - dhHeight - dynamicHint.TopMargin,
+                    Bottom = tuple.Item2 + dynamicHint.BottomMargin,
+                };
         }
 
         private TextArea ParseToArea(Hint hint)
         {
-            float xCoordinate = _coordinateTool.GetXCoordinateWithAlignment(hint);
-            float yCoordinate = _coordinateTool.GetYCoordinate(hint, HintVerticalAlign.Bottom);
+            float xCoordinate = coordinateTool.GetXCoordinateWithAlignment(hint);
+            float yCoordinate = coordinateTool.GetYCoordinate(hint, HintVerticalAlign.Bottom);
 
-            float width = _coordinateTool.GetTextWidth(hint);
-            float height = _coordinateTool.GetTextHeight(hint);
+            float width = coordinateTool.GetTextWidth(hint);
+            float height = coordinateTool.GetTextHeight(hint);
 
             return new TextArea
             {
                 Top = yCoordinate - height,
                 Bottom = yCoordinate,
-                Left = xCoordinate - width / 2,
-                Right = xCoordinate + width / 2,
+                Left = xCoordinate - (width / 2),
+                Right = xCoordinate + (width / 2),
             };
         }
 
-        private string ParseToRichText(Hint hint)
+        private void ParseToRichText(Hint hint, StringBuilder messageBuilder)
         {
-            //Remove illegal tags
-            string raw = hint.Content.GetText() ?? string.Empty;
-            string text = IllegalTagRegex.Replace(raw, string.Empty);
+            // Remove illegal tags
+            string text = RemoveIllegalTags(hint.Content.GetText() ?? string.Empty);
 
-            //Parse into line infos
-            RichTextParser parser = _richTextParserPool.Rent();
+            // Parse into line infos
+            RichTextParser parser = richTextParserPool.Rent();
             IReadOnlyList<LineInfo> lineList = parser.ParseText(text, hint.FontSize);
-            _richTextParserPool.Return(parser);
+            richTextParserPool.Return(parser);
 
-            if (lineList is null || lineList.IsEmpty())
-                return null;
+            if (lineList.Count == 0)
+                return;
 
-            //Get the bottom y coordinate of first line
+            // Get the bottom y coordinate of first line
             float vOffset =
                 700
-                - _coordinateTool.GetYCoordinate(hint, HintVerticalAlign.Top)// Start at the top of the first line
+                - coordinateTool.GetYCoordinate(hint, HintVerticalAlign.Top)// Start at the top of the first line
                 + hint.LineHeight;// Add extra line height on top of the first line so that the line height will not be calculated for the first line
 
-            //Start to generate rich text
-            StringBuilder richTextBuilder = _stringBuilderPool.Rent();
-
-            //Add default size/alignment
-            richTextBuilder.AppendFormat("<size={0}>", hint.FontSize);
-            if (hint.Alignment != HintAlignment.Center) richTextBuilder.AppendFormat("<align={0}>", hint.Alignment);
-
-            foreach (LineInfo line in lineList)
+            // Add default size/alignment
+            messageBuilder.AppendFormat("<size={0}>", hint.FontSize);
+            if (hint.Alignment != HintAlignment.Center)
             {
-                vOffset -= line.Height + hint.LineHeight; //Move y coordinate to the bottom of the line
-
-                if (string.IsNullOrEmpty(line.RawText))
-                    continue;
-
-                if (hint.XCoordinate != 0) richTextBuilder.AppendFormat("<pos={0:0.#}>", hint.XCoordinate);//X coordinate
-                richTextBuilder.Append("<line-height=0>");//Make sure each line will not affect each other's position
-                if (vOffset != 0) richTextBuilder.AppendFormat("<voffset={0:0.#}>", vOffset);//Y coordinate
-
-                richTextBuilder.Append(line.RawText);//Content
-
-                if (vOffset != 0) richTextBuilder.Append("</voffset>");//End Y coordinate
-                richTextBuilder.AppendLine(); //Break line
+                switch (hint.Alignment)
+                {
+                    case HintAlignment.Left: messageBuilder.Append("<align=left>"); break;
+                    case HintAlignment.Right: messageBuilder.Append("<align=right>"); break;
+                }
             }
 
-            //End default alignment/size
-            if (hint.Alignment != HintAlignment.Center) richTextBuilder.Append("</align>");
-            richTextBuilder.Append("</size>");
+            for (int i = 0; i < lineList.Count; i++)
+            {
+                vOffset -= lineList[i].Height + hint.LineHeight; // Move y coordinate to the bottom of the line
 
-            string result = richTextBuilder.ToString();
-            _stringBuilderPool.Return(richTextBuilder);
+                if (string.IsNullOrEmpty(lineList[i].RawText))
+                    continue;
+
+                if (hint.XCoordinate != 0)
+                    messageBuilder.AppendFormat("<pos={0:0.#}>", hint.XCoordinate); // X coordinate
+                messageBuilder.Append("<line-height=0>"); // Make sure each line will not affect each other's position
+                if (vOffset != 0)
+                    messageBuilder.AppendFormat("<voffset={0:0.#}>", vOffset); // Y coordinate
+
+                messageBuilder.Append(lineList[i].RawText); // Content
+
+                if (vOffset != 0)
+                    messageBuilder.Append("</voffset>"); // End Y coordinate
+                messageBuilder.AppendLine(); // Break line
+            }
+
+            // End default alignment/size
+            if (hint.Alignment != HintAlignment.Center)
+                messageBuilder.Append("</align>");
+            messageBuilder.Append("</size>");
+        }
+
+        private string RemoveIllegalTags(string raw)
+        {
+            if (string.IsNullOrEmpty(raw))
+                return string.Empty;
+
+            // Skip if no tag
+            bool needsModification = false;
+            int i = 0;
+            for (; i < raw.Length; i++)
+            {
+                char c = raw[i];
+                if (c == '{' || c == '}')
+                {
+                    needsModification = true;
+                    break;
+                }
+
+                if (c == '<' &&
+                    (StartsWithIgnoreCase(raw, i, "<line-height=") ||
+                     StartsWithIgnoreCase(raw, i, "<voffset=") ||
+                     StartsWithIgnoreCase(raw, i, "<pos=") ||
+                     StartsWithIgnoreCase(raw, i, "</voffset>")))
+                {
+                    needsModification = true;
+                    break;
+                }
+            }
+
+            if (!needsModification)
+                return raw;
+
+            StringBuilder sb = stringBuilderPool.Rent();
+
+            int length = raw.Length;
+
+            i = 0;
+            while (i < length)
+            {
+                char c = raw[i];
+
+                // Remove all { and } since {} are somehow not displayable
+                if (c == '{' || c == '}')
+                {
+                    i++;
+                    continue;
+                }
+
+                // Remove all illegal tags
+                if (c == '<')
+                {
+                    if (StartsWithIgnoreCase(raw, i, "<line-height=") ||
+                        StartsWithIgnoreCase(raw, i, "<voffset=") ||
+                        StartsWithIgnoreCase(raw, i, "<pos="))
+                    {
+                        int closeIndex = raw.IndexOf('>', i);
+                        if (closeIndex != -1)
+                        {
+                            i = closeIndex + 1; // Skip the whole tag
+                            continue;
+                        }
+                    }
+                    else if (StartsWithIgnoreCase(raw, i, "</voffset>"))
+                    {
+                        i += 10; // Skip "</voffset>"
+                        continue;
+                    }
+                }
+
+                // If not illegal, reserve the character
+                sb.Append(c);
+                i++;
+            }
+
+            string result = sb.ToString();
+            stringBuilderPool.Return(sb);
             return result;
+        }
+
+        private bool StartsWithIgnoreCase(string str, int startIndex, string prefix)
+        {
+            if (startIndex + prefix.Length > str.Length)
+                return false;
+
+            for (int i = 0; i < prefix.Length; i++)
+            {
+                char c1 = str[startIndex + i];
+                char c2 = prefix[i];
+
+                // To lower case
+                if (c1 >= 'A' && c1 <= 'Z')
+                    c1 = (char)(c1 + 32);
+                if (c2 >= 'A' && c2 <= 'Z')
+                    c2 = (char)(c2 + 32);
+
+                if (c1 != c2)
+                    return false;
+            }
+
+            return true;
         }
     }
 }

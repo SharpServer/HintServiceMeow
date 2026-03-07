@@ -1,14 +1,19 @@
-﻿using Hints;
-using HintServiceMeow.Core.Extension;
-using HintServiceMeow.Core.Utilities.Tools;
-using LabApi.Features.Wrappers;
-using System;
-using System.Reflection;
-
-namespace HintServiceMeow.Core.Utilities.Patch
+﻿namespace HintServiceMeow.Core.Utilities.Patch
 {
+    using System;
+    using System.Linq.Expressions;
+    using System.Reflection;
+    using Hints;
+    using HintServiceMeow.Core.Extension;
+    using HintServiceMeow.Plugin;
+    using LabApi.Features.Wrappers;
+    using Logger = HintServiceMeow.Core.Utilities.Tools.Logger;
+
     internal static class Patches
     {
+        private static readonly Func<TextHint, string> TextGetter = (Func<TextHint, string>)GetTextGetter();
+
+#pragma warning disable SA1313
         public static bool HintDisplayPatch(ref Hint hint, ref HintDisplay __instance)
         {
             try
@@ -19,7 +24,7 @@ namespace HintServiceMeow.Core.Utilities.Patch
                 if (hint is TextHint textHint && ReferenceHub.TryGetHubNetID(__instance.connectionToClient.identity.netId, out ReferenceHub referenceHub))
                 {
                     string assemblyName = Assembly.GetCallingAssembly().FullName;
-                    string content = textHint.Text;
+                    string content = TextGetter(textHint);
                     float duration = textHint.DurationScalar;
                     PlayerDisplay.Get(referenceHub).ShowCompatibilityHint(assemblyName, content, duration);
                 }
@@ -90,6 +95,7 @@ namespace HintServiceMeow.Core.Utilities.Patch
         }
 
         public static bool ExiledHintPatch2(ref Exiled.API.Features.Hint hint, ref Exiled.API.Features.Player __instance)
+#pragma warning restore SA1313
         {
             try
             {
@@ -110,5 +116,25 @@ namespace HintServiceMeow.Core.Utilities.Patch
             return false;
         }
 #endif
+
+        private static Delegate GetTextGetter()
+        {
+            var prop = typeof(TextHint).GetProperty(
+                        "Text",
+                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+            if (prop == null)
+                throw new MissingMemberException(typeof(TextHint).FullName, "Text");
+
+            var getMethod = prop.GetGetMethod(nonPublic: true);
+            if (getMethod == null)
+                throw new InvalidOperationException($"Property 'Text' has no getter.");
+
+            var objParam = Expression.Parameter(typeof(TextHint), "obj");
+            var call = Expression.Call(objParam, getMethod);
+            var body = Expression.Convert(call, typeof(string));
+
+            return Expression.Lambda<Func<TextHint, string>>(body, objParam).Compile();
+        }
     }
 }
