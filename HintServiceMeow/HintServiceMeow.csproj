@@ -51,10 +51,10 @@
 
   <ItemGroup>
     <Reference Include="Assembly-CSharp">
-      <HintPath>..\..\Dependencies\LabAPI 14.2.3\Assembly-CSharp.dll</HintPath>
+      <HintPath>..\Dependencies\Assembly-CSharp.dll</HintPath>
     </Reference>
     <Reference Include="Assembly-CSharp-firstpass">
-      <HintPath>..\..\Dependencies\LabAPI 14.2.3\Assembly-CSharp-firstpass.dll</HintPath>
+      <HintPath>..\Dependencies\Assembly-CSharp-firstpass.dll</HintPath>
     </Reference>
     <Reference Include="CommandSystem.Core" HintPath="..\Dependencies\CommandSystem.Core.dll" Private="False" />
     <Reference Include="Exiled.API" HintPath="..\Dependencies\Exiled.API.dll" Private="False" />
