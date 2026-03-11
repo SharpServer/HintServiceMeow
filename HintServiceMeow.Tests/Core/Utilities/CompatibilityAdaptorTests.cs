@@ -45,8 +45,8 @@ public class CompatibilityAdaptorTests
     public void ShowHint_WhenAssemblyIsDisabled_IgnoresHint()
     {
         // Arrange
-        PluginConfig.Instance.DisabledCompatAdapter.Clear();
-        PluginConfig.Instance.DisabledCompatAdapter.Add("blocked");
+        Plugin.Plugin.Instance.Config.DisabledCompatAdapter.Clear();
+        Plugin.Plugin.Instance.Config.DisabledCompatAdapter.Add("blocked");
         CompatibilityAdaptor adaptor = CreateAdaptor(out PlayerDisplay display);
 
         // Act
