@@ -61,6 +61,7 @@
     <Reference Include="Mirror" HintPath="..\Dependencies\Mirror.dll" Private="False" />
     <Reference Include="UnityEngine.CoreModule" HintPath="..\Dependencies\UnityEngine.CoreModule.dll" Private="False" />
     <Reference Include="System.IO.Compression" Private="False" />
+    <Reference Include="System.Drawing" Private="False" />
   </ItemGroup>
 
   <ItemGroup>
