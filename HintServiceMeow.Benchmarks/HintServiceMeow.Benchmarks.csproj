@@ -5,24 +5,31 @@
 		<TargetFramework>net48</TargetFramework>
 		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
 		<AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
-   		 <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+		<GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+		<!-- netstandard 2.0 を強制 -->
+		<LangVersion>12.0</LangVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
 		<PackageReference Include="BenchmarkDotNet" Version="0.13.12" />
 		<PackageReference Include="ExMod.Exiled" Version="9.14.0" />
 		<PackageReference Include="System.Collections.Immutable" Version="9.0.0" />
-
 		<PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.4" />
 		<PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="6.0.0" />
+
+		<!-- netstandard 2.0 を明示的に参照 -->
+		<PackageReference Include="NETStandard.Library" Version="2.0.3" />
 	</ItemGroup>
 
-	<ItemGroup>
-		<Reference Include="netstandard" />
-	</ItemGroup>
+	<!-- netstandard 参照を削除 -->
+	<!--
+    <ItemGroup>
+      <Reference Include="netstandard" />
+    </ItemGroup>
+    -->
 
 	<ItemGroup>
-	  <ProjectReference Include="..\HintServiceMeow\HintServiceMeow.csproj" />
+		<ProjectReference Include="..\HintServiceMeow\HintServiceMeow.csproj" />
 	</ItemGroup>
 
 </Project>
