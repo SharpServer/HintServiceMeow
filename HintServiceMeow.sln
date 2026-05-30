@@ -7,8 +7,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HintServiceMeow", "HintServ
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HintServiceExample", "HintServiceExample\HintServiceExample.csproj", "{A442A726-A0CC-467B-9017-6F4B589A717A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HintServiceMeow.Tests", "HintServiceMeow.Tests\HintServiceMeow.Tests.csproj", "{4D5AD48B-E99A-45A1-91E3-F1C01AF31B6C}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HintServiceMeow.Benchmarks", "HintServiceMeow.Benchmarks\HintServiceMeow.Benchmarks.csproj", "{38A98298-1355-4666-BFA8-F70186DD9ADD}"
 EndProject
 Global
@@ -30,12 +28,6 @@ Global
 		{A442A726-A0CC-467B-9017-6F4B589A717A}.Exiled|x64.Build.0 = Exiled|Any CPU
 		{A442A726-A0CC-467B-9017-6F4B589A717A}.Release|x64.ActiveCfg = Release|Any CPU
 		{A442A726-A0CC-467B-9017-6F4B589A717A}.Release|x64.Build.0 = Release|Any CPU
-		{4D5AD48B-E99A-45A1-91E3-F1C01AF31B6C}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{4D5AD48B-E99A-45A1-91E3-F1C01AF31B6C}.Debug|x64.Build.0 = Debug|Any CPU
-		{4D5AD48B-E99A-45A1-91E3-F1C01AF31B6C}.Exiled|x64.ActiveCfg = Exiled|Any CPU
-		{4D5AD48B-E99A-45A1-91E3-F1C01AF31B6C}.Exiled|x64.Build.0 = Exiled|Any CPU
-		{4D5AD48B-E99A-45A1-91E3-F1C01AF31B6C}.Release|x64.ActiveCfg = Release|Any CPU
-		{4D5AD48B-E99A-45A1-91E3-F1C01AF31B6C}.Release|x64.Build.0 = Release|Any CPU
 		{38A98298-1355-4666-BFA8-F70186DD9ADD}.Debug|x64.ActiveCfg = Debug|Any CPU
 		{38A98298-1355-4666-BFA8-F70186DD9ADD}.Debug|x64.Build.0 = Debug|Any CPU
 		{38A98298-1355-4666-BFA8-F70186DD9ADD}.Exiled|x64.ActiveCfg = Release|Any CPU

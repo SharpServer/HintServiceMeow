@@ -10,6 +10,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="BenchmarkDotNet" Version="0.13.12" />
+		<PackageReference Include="ExMod.Exiled" Version="9.14.0" />
 		<PackageReference Include="System.Collections.Immutable" Version="9.0.0" />
 
 		<PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.4" />
