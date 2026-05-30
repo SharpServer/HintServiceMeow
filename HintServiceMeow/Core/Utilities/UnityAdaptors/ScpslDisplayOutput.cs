@@ -1,4 +1,4 @@
-﻿namespace HintServiceMeow.Core.Utilities.UnityAdaptors
+namespace HintServiceMeow.Core.Utilities.UnityAdaptors
 {
     using System;
     using HintServiceMeow.Core.Interface;
@@ -17,8 +17,8 @@
                 if (connectionToPlayer is not { isReady: true })
                     return;
 
-                Hints.HintMessage hintMessageTemplate = new(new Hints.TextHint(ev.Content, [new Hints.StringHintParameter(string.Empty)], [new Hints.AlphaEffect(1)], 99999f));
-                connectionToPlayer.Send(hintMessageTemplate);
+                Hints.HintMessage hintMessage = ChunkedHintMessageFactory.Create(ev.Content);
+                connectionToPlayer.Send(hintMessage);
             }
             catch (Exception ex)
             {
