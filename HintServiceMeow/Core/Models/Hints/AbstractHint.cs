@@ -32,6 +32,8 @@ namespace HintServiceMeow.Core.Models.Hints
 
         private bool hide;
 
+        private bool resolutionBasedAlign;
+
         #region Constructors
 
         /// <summary>
@@ -56,6 +58,7 @@ namespace HintServiceMeow.Core.Models.Hints
                 lineHeight = hint.lineHeight;
                 content = hint.content;
                 hide = hint.hide;
+                resolutionBasedAlign = hint.resolutionBasedAlign;
             }
             finally
             {
@@ -443,6 +446,43 @@ namespace HintServiceMeow.Core.Models.Hints
         }
 
         /// <summary>
+        /// Gets or sets a value indicating whether align tags will align to the very edge of the screen, based on the resolution.
+        /// </summary>
+        public bool ResolutionBasedAlign
+        {
+            get
+            {
+                Lock.EnterReadLock();
+                try
+                {
+                    return resolutionBasedAlign;
+                }
+                finally
+                {
+                    Lock.ExitReadLock();
+                }
+            }
+
+            set
+            {
+                Lock.EnterWriteLock();
+                try
+                {
+                    if (resolutionBasedAlign == value)
+                        return;
+
+                    resolutionBasedAlign = value;
+                }
+                finally
+                {
+                    Lock.ExitWriteLock();
+                }
+
+                OnHintUpdated(nameof(ResolutionBasedAlign));
+            }
+        }
+
+        /// <summary>
         /// Gets the reader/writer lock used to synchronize access to this hint's fields.
         /// </summary>
         protected ReaderWriterLockSlim Lock { get; } = new(LockRecursionPolicy.SupportsRecursion);
@@ -471,6 +511,7 @@ namespace HintServiceMeow.Core.Models.Hints
             this.lineHeight = copyFrom.lineHeight;
             this.content = copyFrom.content;
             this.hide = copyFrom.hide;
+            this.resolutionBasedAlign = copyFrom.resolutionBasedAlign;
         }
 
         /// <summary>

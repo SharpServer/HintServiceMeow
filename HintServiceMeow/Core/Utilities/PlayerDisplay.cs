@@ -847,6 +847,37 @@ namespace HintServiceMeow.Core.Utilities
                 if (currentParserTask is not null)
                     return;
 
+                float aspectRatio = 1.777777f;
+                try
+                {
+                    if (playerContext != null)
+                    {
+                        var hubProperty = playerContext.GetType().GetProperty("ReferenceHub", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                        var hubObj = hubProperty?.GetValue(playerContext);
+                        if (hubObj != null)
+                        {
+                            var syncField = hubObj.GetType().GetField("aspectRatioSync", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                            var syncObj = syncField?.GetValue(hubObj);
+                            if (syncObj != null)
+                            {
+                                var prop = syncObj.GetType().GetProperty("AspectRatio", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                                if (prop != null)
+                                {
+                                    float val = (float)prop.GetValue(syncObj);
+                                    if (val > 1.01f)
+                                    {
+                                        aspectRatio = val;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Instance.Error(ex);
+                }
+
                 currentParserTask =
                     ConcurrentTaskDispatcher.Instance.Enqueue(async () =>
                     {
@@ -854,7 +885,7 @@ namespace HintServiceMeow.Core.Utilities
 
                         try
                         {
-                            richText = hintParser.ParseToMessage(hintCollection);
+                            richText = hintParser.ParseToMessage(hintCollection, aspectRatio);
 
                             mainThreadDispatcher.Dispatch(() =>
                             {

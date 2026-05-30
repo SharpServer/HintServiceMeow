@@ -1,4 +1,4 @@
-﻿namespace HintServiceMeow.Core.Utilities.Parser
+namespace HintServiceMeow.Core.Utilities.Parser
 {
     using System;
     using System.Collections.Generic;
@@ -51,7 +51,7 @@
             this.hintPool = hintPool ?? HintPool.Instance;
         }
 
-        public string ParseToMessage(HintCollection collection)
+        public string ParseToMessage(HintCollection collection, float aspectRatio = 1.777777f)
         {
             IReadOnlyList<IReadOnlyList<AbstractHint>> allGroups = collection.AllGroups;
 
@@ -132,7 +132,7 @@
                     continue;
                 }
 
-                ParseToRichText(orderedHintGroups[i], messageBuilder);
+                ParseToRichText(orderedHintGroups[i], messageBuilder, aspectRatio);
             }
 
             messageBuilder.AppendLine(PlaceholderBottom); // Place Holder
@@ -291,7 +291,15 @@
             };
         }
 
-        private void ParseToRichText(Hint hint, StringBuilder messageBuilder)
+        private float EdgeOffset(float aspectRatio)
+        {
+            const float Base = 1080f - 1f; // slight padding
+            const float DisplayAreaWidth = 1200f;
+
+            return -System.Math.Min(((aspectRatio * Base) - DisplayAreaWidth) / 2f, DisplayAreaWidth);
+        }
+
+        private void ParseToRichText(Hint hint, StringBuilder messageBuilder, float aspectRatio)
         {
             // Remove illegal tags
             string text = RemoveIllegalTags(hint.Content.GetText() ?? string.Empty);
@@ -334,7 +342,29 @@
                 if (vOffset != 0)
                     messageBuilder.AppendFormat("<voffset={0:0.#}>", vOffset); // Y coordinate
 
-                messageBuilder.Append(lineList[i].RawText); // Content
+                if (hint.ResolutionBasedAlign)
+                {
+                    if (hint.Alignment == HintAlignment.Left)
+                    {
+                        float offset = EdgeOffset(aspectRatio);
+                        messageBuilder.AppendFormat("<space={0:0.#}>", offset);
+                        messageBuilder.Append(lineList[i].RawText);
+                    }
+                    else if (hint.Alignment == HintAlignment.Right)
+                    {
+                        float offset = EdgeOffset(aspectRatio);
+                        messageBuilder.Append(lineList[i].RawText);
+                        messageBuilder.AppendFormat("<space={0:0.#}><size=0>.</size>", offset);
+                    }
+                    else
+                    {
+                        messageBuilder.Append(lineList[i].RawText);
+                    }
+                }
+                else
+                {
+                    messageBuilder.Append(lineList[i].RawText); // Content
+                }
 
                 if (vOffset != 0)
                     messageBuilder.Append("</voffset>"); // End Y coordinate
