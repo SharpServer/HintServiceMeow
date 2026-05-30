@@ -18,6 +18,7 @@ namespace HintServiceMeow.Core.Utilities.Parser
     {
         private const string PlaceholderTop = "<line-height=0><voffset=9999>P</voffset>";
         private const string PlaceholderBottom = "<line-height=0><voffset=-9999>P</voffset>";
+        private const float BaselineEdgeOffset = -359.1111f; // EdgeOffset at 16:9 (1.7777778f)
 
         private readonly ICache<Guid, ValueTuple<float, float>> dynamicHintPositionCache;
         private readonly ICoordinateTools coordinateTool;
@@ -336,8 +337,20 @@ namespace HintServiceMeow.Core.Utilities.Parser
                 if (string.IsNullOrEmpty(lineList[i].RawText))
                     continue;
 
-                if (hint.XCoordinate != 0)
+                bool xCoordinateWritten = false;
+                if (hint.ResolutionBasedAlign)
+                {
+                    if (hint.Alignment == HintAlignment.Left)
+                    {
+                        float offset = EdgeOffset(aspectRatio);
+                        messageBuilder.AppendFormat("<pos={0:0.#}>", offset + (hint.XCoordinate - BaselineEdgeOffset));
+                        xCoordinateWritten = true;
+                    }
+                }
+
+                if (!xCoordinateWritten && hint.XCoordinate != 0)
                     messageBuilder.AppendFormat("<pos={0:0.#}>", hint.XCoordinate); // X coordinate
+
                 messageBuilder.Append("<line-height=0>"); // Make sure each line will not affect each other's position
                 if (vOffset != 0)
                     messageBuilder.AppendFormat("<voffset={0:0.#}>", vOffset); // Y coordinate
@@ -346,15 +359,13 @@ namespace HintServiceMeow.Core.Utilities.Parser
                 {
                     if (hint.Alignment == HintAlignment.Left)
                     {
-                        float offset = EdgeOffset(aspectRatio);
-                        messageBuilder.AppendFormat("<space={0:0.#}>", offset);
                         messageBuilder.Append(lineList[i].RawText);
                     }
                     else if (hint.Alignment == HintAlignment.Right)
                     {
                         float offset = EdgeOffset(aspectRatio);
                         messageBuilder.Append(lineList[i].RawText);
-                        messageBuilder.AppendFormat("<space={0:0.#}><size=0>.</size>", offset);
+                        messageBuilder.AppendFormat("<space={0:0.#}><size=0>.</size>", offset - (hint.XCoordinate - (-BaselineEdgeOffset)));
                     }
                     else
                     {
