@@ -162,6 +162,32 @@ namespace HintServiceMeow.Core.Models.HintContent
         }
 
         /// <summary>
+        /// Creates an <see cref="ImageContent"/> from a local file path or URL.
+        /// This mirrors the standalone Images plugin's location + isUrl API shape.
+        /// </summary>
+        /// <param name="location">File path or HTTP/HTTPS URL.</param>
+        /// <param name="isUrl">Whether <paramref name="location"/> is a URL.</param>
+        /// <param name="fps">Playback speed in frames per second.</param>
+        /// <param name="loop">Whether the animation loops after the last frame.</param>
+        /// <param name="scale">Font-size percentage baked into each frame (0 = auto-calculate).</param>
+        /// <param name="shapeCorrection">Stretch the bitmap to correct for non-square block glyphs.</param>
+        /// <param name="compress">Merge adjacent similar-coloured pixels to reduce packet size.</param>
+        /// <returns>A new <see cref="ImageContent"/> ready for use.</returns>
+        public static ImageContent LoadFromLocation(
+            string location,
+            bool isUrl = false,
+            float fps = 10f,
+            bool loop = true,
+            float scale = 0f,
+            bool shapeCorrection = true,
+            bool compress = true)
+        {
+            return isUrl
+                ? LoadFromUrl(location, fps, loop, scale, shapeCorrection, compress)
+                : LoadFromFile(location, fps, loop, scale, shapeCorrection, compress);
+        }
+
+        /// <summary>
         /// Creates an <see cref="ImageContent"/> from a pre-rendered list of frame strings.
         /// Frames are available immediately — no background task is started.
         /// Ideal for sharing already-cached frames across multiple players without any overhead.

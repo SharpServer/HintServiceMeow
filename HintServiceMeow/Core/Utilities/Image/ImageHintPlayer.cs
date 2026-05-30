@@ -126,6 +126,48 @@ namespace HintServiceMeow.Core.Utilities.Image
         }
 
         /// <summary>
+        /// Starts playing an image from either a local file path or URL on the specified player's display.
+        /// </summary>
+        /// <param name="display">The target player display.</param>
+        /// <param name="location">File path or HTTP/HTTPS URL.</param>
+        /// <param name="isUrl">Whether <paramref name="location"/> is a URL.</param>
+        /// <param name="yCoordinate">Vertical position (0â€“1080; higher value = lower on screen).</param>
+        /// <param name="fps">Animation speed in frames per second.</param>
+        /// <param name="loop">Whether to loop the animation after the last frame.</param>
+        /// <param name="xCoordinate">Horizontal offset from centre.</param>
+        /// <param name="alignment">Horizontal alignment of the hint.</param>
+        /// <param name="scale">Font-size percentage baked into each frame (0 = auto-calculate).</param>
+        /// <param name="shapeCorrection">Stretch the bitmap to correct for non-square block glyphs.</param>
+        /// <param name="compress">Merge adjacent similar-coloured pixels to reduce packet size.</param>
+        /// <returns>An <see cref="ImagePlayback"/> handle; dispose it to stop playback.</returns>
+        public static ImagePlayback PlayLocation(
+            PlayerDisplay display,
+            string location,
+            bool isUrl = false,
+            float yCoordinate = 400f,
+            float fps = 10f,
+            bool loop = true,
+            float xCoordinate = 0f,
+            HintAlignment alignment = HintAlignment.Center,
+            float scale = 0f,
+            bool shapeCorrection = true,
+            bool compress = true)
+        {
+            if (display == null)
+            {
+                throw new ArgumentNullException(nameof(display));
+            }
+
+            if (location == null)
+            {
+                throw new ArgumentNullException(nameof(location));
+            }
+
+            var content = ImageContent.LoadFromLocation(location, isUrl, fps, loop, scale, shapeCorrection, compress);
+            return CreatePlayback(display, content, yCoordinate, xCoordinate, alignment);
+        }
+
+        /// <summary>
         /// Starts playing a pre-rendered image from a list of frame strings.
         /// Ideal for sharing already-cached frames across multiple players without any overhead.
         /// </summary>

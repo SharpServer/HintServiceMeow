@@ -13,7 +13,7 @@ namespace HintServiceMeow.Core.Utilities.Image
     /// and guarantees that the same image + parameters are rendered at most once, regardless of
     /// how many <see cref="HintServiceMeow.Core.Models.HintContent.ImageContent"/> instances request it.
     /// </summary>
-    internal static class ImageRenderCache
+    public static class ImageRenderCache
     {
         // Insertion-ordered dictionary for simple FIFO eviction.
         private static readonly Dictionary<CacheKey, CacheEntry> Cache
@@ -26,10 +26,59 @@ namespace HintServiceMeow.Core.Utilities.Image
         // ------------------------------------------------------------------ //
 
         /// <summary>Gets or sets the maximum number of distinct images kept in memory.  Default: 30.</summary>
-        internal static int MaxEntries { get; set; } = 30;
+        public static int MaxEntries { get; set; } = 30;
 
         // ------------------------------------------------------------------ //
         // Public methods                                                      //
+        // ------------------------------------------------------------------ //
+
+        /// <summary>Removes all cached entries.</summary>
+        public static void Clear()
+        {
+            lock (CacheLock)
+            {
+                Cache.Clear();
+            }
+        }
+
+        /// <summary>
+        /// Starts rendering a file-backed image into the shared cache.
+        /// </summary>
+        public static void PreloadFile(
+            string filePath,
+            float scale = 0f,
+            bool shapeCorrection = true,
+            bool compress = true,
+            CancellationToken ct = default)
+        {
+            if (filePath == null)
+            {
+                throw new ArgumentNullException(nameof(filePath));
+            }
+
+            GetOrCreate(new CacheKey(filePath, isUrl: false, scale, shapeCorrection, compress), ct);
+        }
+
+        /// <summary>
+        /// Starts downloading and rendering a URL-backed image into the shared cache.
+        /// </summary>
+        public static void PreloadUrl(
+            string url,
+            float scale = 0f,
+            bool shapeCorrection = true,
+            bool compress = true,
+            CancellationToken ct = default)
+        {
+            if (url == null)
+            {
+                throw new ArgumentNullException(nameof(url));
+            }
+
+            GetOrCreate(new CacheKey(url, isUrl: true, scale, shapeCorrection, compress), ct);
+        }
+
+        // ------------------------------------------------------------------ //
+        // Internal methods                                                    //
         // ------------------------------------------------------------------ //
 
         /// <summary>
@@ -57,15 +106,6 @@ namespace HintServiceMeow.Core.Utilities.Image
                 entry.RenderTask = Task.Run(() => StartRender(key, entry, ct), ct);
 
                 return entry;
-            }
-        }
-
-        /// <summary>Removes all cached entries.</summary>
-        internal static void Clear()
-        {
-            lock (CacheLock)
-            {
-                Cache.Clear();
             }
         }
 

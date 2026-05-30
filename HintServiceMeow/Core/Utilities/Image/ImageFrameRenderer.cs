@@ -23,14 +23,6 @@ namespace HintServiceMeow.Core.Utilities.Image
     /// </summary>
     internal static class ImageFrameRenderer
     {
-        private const float ThresholdStep = 0.5f;
-
-        // Unicode byte limit per frame (same check as the original Images plugin).
-        private const int MaxFrameUnicodeBytes = 32768;
-
-        // Maximum pixel count per frame.
-        private const int MaxPixels = 10000;
-
         /// <summary>
         /// Renders all frames of <paramref name="image"/> synchronously, invoking
         /// <paramref name="onFrame"/> for each successfully-rendered frame and
@@ -98,11 +90,11 @@ namespace HintServiceMeow.Core.Utilities.Image
                 image.SelectActiveFrame(dim, index);
 
                 int totalPixels = image.Size.Width * image.Size.Height;
-                if (totalPixels > MaxPixels)
+                if (totalPixels > ImageRenderSettings.MaxPixels)
                 {
                     onComplete(new InvalidOperationException(
                         $"Image is too large ({image.Size.Width}×{image.Size.Height} = {totalPixels} px). " +
-                        $"Maximum is {MaxPixels} px (e.g. 100×100)."));
+                        $"Maximum is {ImageRenderSettings.MaxPixels} px."));
                     return;
                 }
 
@@ -158,15 +150,18 @@ namespace HintServiceMeow.Core.Utilities.Image
         // ------------------------------------------------------------------ //
 
         /// <summary>
-        /// Attempts to compress the frame until it fits within <see cref="MaxFrameUnicodeBytes"/>.
+        /// Attempts to compress the frame until it fits within <see cref="ImageRenderSettings.MaxFrameUtf8Bytes"/>.
         /// Returns <see langword="null"/> if no compression level achieves the target size.
         /// </summary>
         private static string? TryBuildFrameText(Bitmap bitmap, string sizePrefix, bool compress)
         {
-            for (float threshold = 0f; threshold < 5f; threshold += ThresholdStep)
+            float maxThreshold = ImageRenderSettings.MaxCompressionThreshold;
+            float step = ImageRenderSettings.CompressionThresholdStep;
+
+            for (float threshold = 0f; threshold <= maxThreshold; threshold += step)
             {
                 string candidate = BuildFrameText(bitmap, sizePrefix, compress, threshold);
-                if (Encoding.Unicode.GetByteCount(candidate) <= MaxFrameUnicodeBytes)
+                if (Encoding.UTF8.GetByteCount(candidate) <= ImageRenderSettings.MaxFrameUtf8Bytes)
                 {
                     return candidate;
                 }
