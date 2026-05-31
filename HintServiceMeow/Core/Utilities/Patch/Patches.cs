@@ -71,7 +71,12 @@
                     return;
 
                 Trace("HintDisplay.Show", "original-ran", hint, null, null);
-                PlayerDisplay.Get(referenceHub).ForceUpdateAfter(hint.DurationScalar + 0.05f);
+
+                float restoreDelay = Plugin.Instance.Config.PreferHsmOverVanillaHints
+                    ? 0.1f
+                    : hint.DurationScalar + 0.05f;
+
+                PlayerDisplay.Get(referenceHub).ForceUpdateAfter(restoreDelay);
             }
             catch (Exception ex)
             {

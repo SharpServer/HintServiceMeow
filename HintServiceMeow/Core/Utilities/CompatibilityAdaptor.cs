@@ -20,6 +20,7 @@
     /// </summary>
     internal class CompatibilityAdaptor : ICompatibilityAdaptor, IDestructible
     {
+        internal const float MaxCompatibilityDuration = 30f;
         internal static readonly HashSet<string> RegisteredAssemblies = new(); // All assemblies that used compatibility adaptor
         private static readonly ICache<string, IReadOnlyList<Hint>> HintCache = new Cache<string, IReadOnlyList<Hint>>(500);
 
@@ -64,7 +65,7 @@
 
             string assemblyName = ev.AssemblyName;
             string content = ev.Content ?? string.Empty;
-            float duration = Math.Min(ev.Duration, float.MaxValue - 1f);
+            float duration = NormalizeDuration(ev.Duration);
 
             // Record the assembly that is using the compatibility adaptor
             RegisteredAssemblies.Add(assemblyName);
@@ -199,6 +200,17 @@
             }
 
             return clones.AsReadOnly();
+        }
+
+        private float NormalizeDuration(float duration)
+        {
+            if (float.IsNaN(duration) || duration <= 0f)
+                return duration;
+
+            if (float.IsInfinity(duration))
+                return MaxCompatibilityDuration;
+
+            return Math.Min(duration, MaxCompatibilityDuration);
         }
 
         private void Trace(string action, string assemblyName, string content, string? extra = null)
