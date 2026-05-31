@@ -29,10 +29,10 @@ namespace HintServiceMeow.Core.Utilities
 
         private readonly IPlayerContext playerContext; // Initialize in constructor
         private readonly HintCollection hintCollection = new();
-        private readonly ITaskScheduler updateScheduler; // Initialize in constructor
 
         private readonly object displayOutputsLock = new();
         private readonly object currentParserTaskLock = new();
+        private readonly object updateScheduleLock = new();
 
         private IHintParser hintParser = new HintParser();
         private ICompatibilityAdaptor adapter; // Initialize in constructor
@@ -44,12 +44,15 @@ namespace HintServiceMeow.Core.Utilities
 
         private Task? currentParserTask;
 
+        private DateTime nextScheduledUpdateTime = DateTime.MaxValue;
+        private DateTime lastSendTime = DateTime.MinValue;
+        private TimeSpan minUpdateInterval = TimeSpan.Zero;
+
         private volatile bool isDestructed = false;
 
         internal PlayerDisplay(
             IPlayerContext playerContext,
             HintCollection? displayHints = null,
-            ITaskScheduler? updateScheduler = null,
             ICompatibilityAdaptor? adaptor = null,
             IHintParser? hintParser = null,
             IEnumerable<IDisplayOutput>? displayOutputs = null,
@@ -71,28 +74,12 @@ namespace HintServiceMeow.Core.Utilities
                 this.coroutineRunner = coroutineRunner;
 
             adapter = adaptor ?? new CompatibilityAdaptor(this); // Default compatibility adaptor
-            this.updateScheduler = updateScheduler ?? new TaskScheduler(); // Default task scheduler with zero interval
 
             // When collection changed, update the content on player's screen
             this.hintCollection.CollectionChanged += OnCollectionChanged;
 
-            // Initialize update scheduler. Make update scheduler wait for a cycle when the previous parper is still running. Set action of the scheduler to start parser task.
-            this.updateScheduler.InvokeUntilSuccess = true;
-            this.updateScheduler.Start(TimeSpan.Zero, () =>
-            {
-                lock (currentParserTaskLock)
-                {
-                    if (currentParserTask != null)
-                        return false; // If a parser task is already running, wait till next cycle to update
-                }
-
-                this.updateScheduler.Pause(); // Pause action until the parser task is finishing
-                StartParserTask();
-
-                return true; // Success
-            });
-
             // Start the main coroutine on main thread
+            ScheduleUpdate();
             coroutine = this.coroutineRunner.StartCoroutine(CoroutineMethod());
         }
 
@@ -221,7 +208,7 @@ namespace HintServiceMeow.Core.Utilities
         /// <param name="interval">The minimum time interval that must elapse between updates. Must be a positive value.</param>
         public void SetMinUpdateInterval(TimeSpan interval)
         {
-            updateScheduler.MinInterval = interval;
+            minUpdateInterval = interval <= TimeSpan.Zero ? TimeSpan.Zero : interval;
         }
 
         /// <summary>
@@ -622,8 +609,6 @@ namespace HintServiceMeow.Core.Utilities
             // Clear pd's reference to hints
             hintCollection.ClearHints(null);
 
-            ((IDestructible)updateScheduler).Destruct(); // Stop task scheduler's coroutine
-
             ((IDestructible)adapter).Destruct(); // Stop compatibility adaptor's coroutine
         }
 
@@ -724,7 +709,7 @@ namespace HintServiceMeow.Core.Utilities
                 return;
             }
 
-            updateScheduler.Invoke(delay, DelayType.KeepFastest);
+            ScheduleUpdateAt(DateTime.Now.AddSeconds(delay));
         }
 
         private IEnumerator<float> CoroutineMethod()
@@ -742,14 +727,14 @@ namespace HintServiceMeow.Core.Utilities
 
                 try
                 {
-                    // Periodic update
-                    if (updateScheduler.Elapsed > TimeSpan.FromSeconds(5))
+                    UpdateAvailable?.Invoke(new UpdateAvailableEventArg(this));
+
+                    // Periodic refresh keeps long-lived hints alive even when no property changed.
+                    if (DateTime.Now - lastSendTime > TimeSpan.FromSeconds(5))
                         ScheduleUpdate();
 
-                    if (updateScheduler.IsReadyForNextAction)
-                    {
-                        UpdateAvailable?.Invoke(new UpdateAvailableEventArg(this));
-                    }
+                    if (TryConsumeScheduledUpdate())
+                        StartParserTask();
                 }
                 catch (Exception ex)
                 {
@@ -799,7 +784,7 @@ namespace HintServiceMeow.Core.Utilities
         {
             if (maxWaitingTime <= 0)
             {
-                updateScheduler.Invoke();
+                ScheduleUpdateAt(DateTime.MinValue);
                 return;
             }
 
@@ -848,7 +833,46 @@ namespace HintServiceMeow.Core.Utilities
             // Increase delay by 10% to increase hit rate of prediction
             delay = Math.Min(maxWaitingTime, delay * 1.1f);
 
-            updateScheduler.Invoke(delay, DelayType.KeepFastest);
+            ScheduleUpdateAt(now.AddSeconds(delay));
+        }
+
+        private void ScheduleUpdateAt(DateTime updateTime)
+        {
+            lock (updateScheduleLock)
+            {
+                if (updateTime < nextScheduledUpdateTime)
+                    nextScheduledUpdateTime = updateTime;
+            }
+        }
+
+        private bool TryConsumeScheduledUpdate()
+        {
+            lock (currentParserTaskLock)
+            {
+                if (currentParserTask is not null)
+                    return false;
+            }
+
+            DateTime now = DateTime.Now;
+
+            lock (updateScheduleLock)
+            {
+                if (nextScheduledUpdateTime == DateTime.MaxValue || nextScheduledUpdateTime > now)
+                    return false;
+
+                if (minUpdateInterval > TimeSpan.Zero)
+                {
+                    DateTime nextAllowedUpdateTime = lastSendTime + minUpdateInterval;
+                    if (nextAllowedUpdateTime > now)
+                    {
+                        nextScheduledUpdateTime = nextAllowedUpdateTime;
+                        return false;
+                    }
+                }
+
+                nextScheduledUpdateTime = DateTime.MaxValue;
+                return true;
+            }
         }
 
         private void StartParserTask()
@@ -890,7 +914,7 @@ namespace HintServiceMeow.Core.Utilities
                 }
 
                 currentParserTask =
-                    ConcurrentTaskDispatcher.Instance.Enqueue(async () =>
+                    ConcurrentTaskDispatcher.Instance.Enqueue(() =>
                     {
                         string richText;
 
@@ -914,12 +938,13 @@ namespace HintServiceMeow.Core.Utilities
                                 }
                                 finally
                                 {
+                                    if (!this.isDestructed)
+                                        lastSendTime = DateTime.Now;
+
                                     lock (currentParserTaskLock)
                                     {
                                         currentParserTask = null; // Does this in main thread
                                     }
-
-                                    updateScheduler.Resume(); // Resume action after the parser task is finishing
                                 }
                             });
                         }
@@ -932,12 +957,10 @@ namespace HintServiceMeow.Core.Utilities
                                 currentParserTask = null;
                             }
 
-                            updateScheduler.Resume(); // Resume action if parser or main thread dispatcher failed
-
-                            return Task.CompletedTask;
+                            return Task.FromResult(false);
                         }
 
-                        return Task.CompletedTask;
+                        return Task.FromResult(true);
                     });
             }
         }
