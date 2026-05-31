@@ -78,7 +78,7 @@
             if (duration <= 0f || string.IsNullOrEmpty(content))
             {
                 playerDisplay.InternalClearHint(internalAssemblyName);
-                playerDisplay.ForceUpdate();
+                playerDisplay.ForceUpdate(useFastUpdate: true);
                 return;
             }
 
@@ -94,7 +94,7 @@
                 coroutineRunner.CallAfter(TimeSpan.FromSeconds(duration + 0.1f), () =>
                 {
                     playerDisplay.InternalClearHint(internalAssemblyName);
-                    playerDisplay.ForceUpdate();
+                    playerDisplay.ForceUpdate(useFastUpdate: true);
                     removeHandles.Remove(internalAssemblyName);
                 });
 
@@ -142,7 +142,7 @@
             playerDisplay.InternalClearHint(assemblyName);
             foreach (Hint hint in hints)
                 playerDisplay.InternalAddHint(assemblyName, hint);
-            playerDisplay.ForceUpdate();// Since all the CompatibilityAdaptor hint is not synced, we need to force update
+            playerDisplay.ForceUpdate(useFastUpdate: true); // Compatibility adaptor hints are unsynced, so push replacements immediately.
         }
 
         private IReadOnlyList<Hint> ParseRichTextToHints(string content)

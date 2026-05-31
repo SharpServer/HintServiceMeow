@@ -17,8 +17,7 @@ namespace HintServiceMeow.Core.Utilities.UnityAdaptors
                 if (connectionToPlayer is not { isReady: true })
                     return;
 
-                Hints.HintMessage hintMessage = ChunkedHintMessageFactory.Create(ev.Content);
-                connectionToPlayer.Send(hintMessage);
+                ChunkedHintMessageFactory.Send(connectionToPlayer, ev.Content);
             }
             catch (Exception ex)
             {

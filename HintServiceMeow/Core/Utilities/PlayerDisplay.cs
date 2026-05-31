@@ -716,6 +716,17 @@ namespace HintServiceMeow.Core.Utilities
 
         internal void ShowCompatibilityHint(string assemblyName, string? content, float duration) => adapter.ShowHint(new CompatibilityAdaptorArg(assemblyName, content, duration));
 
+        internal void ForceUpdateAfter(float delay)
+        {
+            if (delay <= 0f || float.IsNaN(delay) || float.IsInfinity(delay))
+            {
+                ForceUpdate(useFastUpdate: true);
+                return;
+            }
+
+            updateScheduler.Invoke(delay, DelayType.KeepFastest);
+        }
+
         private IEnumerator<float> CoroutineMethod()
         {
             while (true)
