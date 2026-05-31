@@ -60,7 +60,7 @@ namespace HintServiceMeow.Core.Utilities.Parser
             {
                 for (int j = 0; j < allGroups[i].Count; j++)
                 {
-                    if (allGroups[i][j] is Hint { Hide: false } hint && !string.IsNullOrEmpty(hint.Content.GetText()))
+                    if (allGroups[i][j] is Hint { Hide: false, BlocksDynamicHints: true } hint && !string.IsNullOrEmpty(hint.Content.GetText()))
                         dynamicHintColliders.Add(ParseToArea(hint));
                 }
             }

@@ -34,6 +34,8 @@ namespace HintServiceMeow.Core.Models.Hints
 
         private bool resolutionBasedAlign;
 
+        private bool blocksDynamicHints = true;
+
         #region Constructors
 
         /// <summary>
@@ -59,6 +61,7 @@ namespace HintServiceMeow.Core.Models.Hints
                 content = hint.content;
                 hide = hint.hide;
                 resolutionBasedAlign = hint.resolutionBasedAlign;
+                blocksDynamicHints = hint.blocksDynamicHints;
             }
             finally
             {
@@ -483,6 +486,43 @@ namespace HintServiceMeow.Core.Models.Hints
         }
 
         /// <summary>
+        /// Gets or sets a value indicating whether this hint reserves space when dynamic hints are positioned.
+        /// </summary>
+        public bool BlocksDynamicHints
+        {
+            get
+            {
+                Lock.EnterReadLock();
+                try
+                {
+                    return blocksDynamicHints;
+                }
+                finally
+                {
+                    Lock.ExitReadLock();
+                }
+            }
+
+            set
+            {
+                Lock.EnterWriteLock();
+                try
+                {
+                    if (blocksDynamicHints == value)
+                        return;
+
+                    blocksDynamicHints = value;
+                }
+                finally
+                {
+                    Lock.ExitWriteLock();
+                }
+
+                OnHintUpdated(nameof(BlocksDynamicHints));
+            }
+        }
+
+        /// <summary>
         /// Gets the reader/writer lock used to synchronize access to this hint's fields.
         /// </summary>
         protected ReaderWriterLockSlim Lock { get; } = new(LockRecursionPolicy.SupportsRecursion);
@@ -512,6 +552,7 @@ namespace HintServiceMeow.Core.Models.Hints
             this.content = copyFrom.content;
             this.hide = copyFrom.hide;
             this.resolutionBasedAlign = copyFrom.resolutionBasedAlign;
+            this.blocksDynamicHints = copyFrom.blocksDynamicHints;
         }
 
         /// <summary>
@@ -521,6 +562,7 @@ namespace HintServiceMeow.Core.Models.Hints
         {
             this.id = string.Empty;
             this.content = null!;
+            this.blocksDynamicHints = true;
         }
 
         /// <summary>

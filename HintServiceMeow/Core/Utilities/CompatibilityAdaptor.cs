@@ -185,8 +185,20 @@
             }
 
             Trace("replace", assemblyName, content, $"hints={hints.Count}");
-            playerDisplay.InternalReplaceHints(assemblyName, hints);
+            playerDisplay.InternalReplaceHints(assemblyName, CloneHints(hints));
             playerDisplay.ForceUpdate(useFastUpdate: true); // Compatibility adaptor hints are unsynced, so push replacements immediately.
+        }
+
+        private IReadOnlyList<Hint> CloneHints(IReadOnlyList<Hint> hints)
+        {
+            List<Hint> clones = new(hints.Count);
+
+            foreach (Hint hint in hints)
+            {
+                clones.Add(new Hint(hint));
+            }
+
+            return clones.AsReadOnly();
         }
 
         private void Trace(string action, string assemblyName, string content, string? extra = null)
@@ -227,6 +239,7 @@
                         Alignment = lineInfo.Alignment,
                         FontSize = (int)lineInfo.Characters.First().FontSize,
                         SyncSpeed = HintSyncSpeed.UnSync, // To make sure that when the compatibility adaptor is clearing the previous hint, the player display will not be updated
+                        BlocksDynamicHints = false,
                     });
                 }
 
