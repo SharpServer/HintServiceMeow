@@ -12,6 +12,8 @@ namespace HintServiceMeow.Core.Models
     /// </summary>
     public class HintCollection : INotifyCollectionChanged
     {
+        private const string CompatibilityGroupPrefix = "CompatibilityAdaptor-";
+
         private readonly object collectionLock = new();
         private readonly Dictionary<string, List<AbstractHint>> hintGroups = new();
 
@@ -33,7 +35,12 @@ namespace HintServiceMeow.Core.Models
                 lock (collectionLock)
                 {
                     if (allGroupsCache == null)
-                        allGroupsCache = hintGroups.Values.Select(x => x.ToList().AsReadOnly()).ToList().AsReadOnly();
+                    {
+                        allGroupsCache = GetOrderedGroups()
+                            .Select(x => x.ToList().AsReadOnly())
+                            .ToList()
+                            .AsReadOnly();
+                    }
 
                     return allGroupsCache;
                 }
@@ -50,7 +57,12 @@ namespace HintServiceMeow.Core.Models
                 lock (collectionLock)
                 {
                     if (allHintsCache == null)
-                        allHintsCache = hintGroups.Values.SelectMany(x => x).ToList().AsReadOnly();
+                    {
+                        allHintsCache = GetOrderedGroups()
+                            .SelectMany(x => x)
+                            .ToList()
+                            .AsReadOnly();
+                    }
 
                     return allHintsCache;
                 }
@@ -276,6 +288,13 @@ namespace HintServiceMeow.Core.Models
             }
 
             CollectionChanged?.Invoke(this, argument);
+        }
+
+        private IEnumerable<List<AbstractHint>> GetOrderedGroups()
+        {
+            return hintGroups
+                .OrderByDescending(x => x.Key.StartsWith(CompatibilityGroupPrefix, StringComparison.Ordinal))
+                .Select(x => x.Value);
         }
     }
 }
