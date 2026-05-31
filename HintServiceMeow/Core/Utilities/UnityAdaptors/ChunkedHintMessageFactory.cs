@@ -4,6 +4,7 @@ namespace HintServiceMeow.Core.Utilities.UnityAdaptors
     using System.Collections.Generic;
     using System.Text;
     using Hints;
+    using HintServiceMeow.Core.Utilities.Tools;
     using Mirror;
     using UnityEngine;
     using Utils.Networking;
@@ -46,6 +47,9 @@ namespace HintServiceMeow.Core.Utilities.UnityAdaptors
 
             if (Encoding.UTF8.GetByteCount(content) <= MaxStringUtf8Bytes)
             {
+                if (HintTrace.IsEnabled)
+                    HintTrace.Log($"network text-direct duration={durationScalar:0.###} {HintTrace.Describe(content)}");
+
                 WriteEmptyStringParameter(writer);
                 writer.WriteString(content);
                 connection.Send(writer.ToArraySegment());
@@ -53,6 +57,9 @@ namespace HintServiceMeow.Core.Utilities.UnityAdaptors
             }
 
             IReadOnlyList<string> chunks = SplitUtf8Safe(content, MaxStringUtf8Bytes);
+
+            if (HintTrace.IsEnabled)
+                HintTrace.Log($"network text-chunked duration={durationScalar:0.###} chunks={chunks.Count} {HintTrace.Describe(content)}");
 
             writer.WriteInt(chunks.Count);
             foreach (string chunk in chunks)

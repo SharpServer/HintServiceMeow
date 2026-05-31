@@ -16,6 +16,9 @@
 
         public bool Debug { get; set; } = false;
 
+        [Description("Logs every hint pipeline decision. Enable only while diagnosing flicker or compatibility issues.")]
+        public bool TraceHintPipeline { get; set; } = false;
+
         [Description("By using this feature, it might make plugin that is imcompatible with HintServiceMeow compatible. This is a experimental feature")]
         public bool UseHintCompatibilityAdapter { get; set; } = false;
 

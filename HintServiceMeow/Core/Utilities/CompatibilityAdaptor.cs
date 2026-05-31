@@ -24,6 +24,8 @@
         private static readonly ICache<string, IReadOnlyList<Hint>> HintCache = new Cache<string, IReadOnlyList<Hint>>(500);
 
         private readonly Dictionary<string, ICoroutine> removeHandles = new();
+        private readonly Dictionary<string, string> activeContents = new();
+        private readonly object stateLock = new();
         private readonly PlayerDisplay playerDisplay; // Initialize in constructor
         private readonly IPool<RichTextParser> richTextParserPool; // Initialize in constructor
         private readonly ICoroutineRunner coroutineRunner; // Initialize in constructor
@@ -67,9 +69,13 @@
             // Record the assembly that is using the compatibility adaptor
             RegisteredAssemblies.Add(assemblyName);
 
-            if (Plugin.Instance.Config.DisabledCompatAdapter.Contains(assemblyName) // Config limitation
-                || content.Length > ushort.MaxValue) // Length limitation
+            Trace("receive", assemblyName, content, $"duration={duration:0.###}");
+
+            if (Plugin.Instance.Config.DisabledCompatAdapter.Contains(assemblyName))
+            {
+                Trace("drop-disabled-assembly", assemblyName, content);
                 return;
+            }
 
             // Use internal assembly name to ensure safety
             string internalAssemblyName = "CompatibilityAdaptor-" + assemblyName;
@@ -77,6 +83,12 @@
             // For negative duration or empty content, clear hint
             if (duration <= 0f || string.IsNullOrEmpty(content))
             {
+                lock (stateLock)
+                {
+                    activeContents.Remove(internalAssemblyName);
+                }
+
+                Trace("clear", assemblyName, content, "duration-or-empty");
                 playerDisplay.InternalClearHint(internalAssemblyName);
                 playerDisplay.ForceUpdate(useFastUpdate: true);
                 return;
@@ -89,18 +101,35 @@
             if (removeHandles.TryGetValue(internalAssemblyName, out ICoroutine oldHandle))
                 oldHandle.Kill(); // Stop the previous coroutine if exists
 
-            // Start a new coroutine to remove the hint after the duration
             removeHandles[internalAssemblyName] =
                 coroutineRunner.CallAfter(TimeSpan.FromSeconds(duration + 0.1f), () =>
                 {
+                    lock (stateLock)
+                    {
+                        activeContents.Remove(internalAssemblyName);
+                    }
+
                     playerDisplay.InternalClearHint(internalAssemblyName);
                     playerDisplay.ForceUpdate(useFastUpdate: true);
                     removeHandles.Remove(internalAssemblyName);
                 });
 
+            lock (stateLock)
+            {
+                if (activeContents.TryGetValue(internalAssemblyName, out string activeContent)
+                    && string.Equals(activeContent, content, StringComparison.Ordinal))
+                {
+                    Trace("refresh-same", assemblyName, content, "extended-remove-timer");
+                    return;
+                }
+
+                activeContents[internalAssemblyName] = content;
+            }
+
             DateTime expireTime = DateTime.Now.AddSeconds(Math.Min(duration, 5f)); // Wait for at most 5 second and at least the duration
 
             // Start new remove action, remove after the Duration
+            Trace("parse-start", assemblyName, content);
             _ = InternalShowHint(internalAssemblyName, content, expireTime);
         }
 
@@ -111,7 +140,8 @@
                 // Check if the hint is already cached
                 if (HintCache.TryGet(content, out IReadOnlyList<Hint> cachedHintList))
                 {
-                    ReplaceHint(internalAssemblyName, cachedHintList);
+                    Trace("cache-hit", internalAssemblyName, content, $"hints={cachedHintList.Count}");
+                    ReplaceHint(internalAssemblyName, content, cachedHintList);
                     return;
                 }
 
@@ -122,11 +152,16 @@
 
                 // Add result to cache
                 HintCache.Add(content, hintList);
+                Trace("parse-complete", internalAssemblyName, content, $"hints={hintList.Count}");
 
                 // Update if the content is not outdated
                 if (DateTime.Now < expireTime)
                 {
-                    ReplaceHint(internalAssemblyName, hintList);
+                    ReplaceHint(internalAssemblyName, content, hintList);
+                }
+                else
+                {
+                    Trace("drop-expired-parse", internalAssemblyName, content);
                 }
             }
             catch (Exception ex)
@@ -137,12 +172,30 @@
             }
         }
 
-        private void ReplaceHint(string assemblyName, IReadOnlyList<Hint> hints)
+        private void ReplaceHint(string assemblyName, string content, IReadOnlyList<Hint> hints)
         {
-            playerDisplay.InternalClearHint(assemblyName);
-            foreach (Hint hint in hints)
-                playerDisplay.InternalAddHint(assemblyName, hint);
+            lock (stateLock)
+            {
+                if (!activeContents.TryGetValue(assemblyName, out string activeContent)
+                    || !string.Equals(activeContent, content, StringComparison.Ordinal))
+                {
+                    Trace("drop-stale-replace", assemblyName, content);
+                    return;
+                }
+            }
+
+            Trace("replace", assemblyName, content, $"hints={hints.Count}");
+            playerDisplay.InternalReplaceHints(assemblyName, hints);
             playerDisplay.ForceUpdate(useFastUpdate: true); // Compatibility adaptor hints are unsynced, so push replacements immediately.
+        }
+
+        private void Trace(string action, string assemblyName, string content, string? extra = null)
+        {
+            if (!HintTrace.IsEnabled)
+                return;
+
+            string suffix = string.IsNullOrEmpty(extra) ? string.Empty : " " + extra;
+            HintTrace.Log($"compat {action} assembly=\"{assemblyName}\" {HintTrace.Describe(content)}{suffix}");
         }
 
         private IReadOnlyList<Hint> ParseRichTextToHints(string content)

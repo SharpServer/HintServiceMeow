@@ -48,6 +48,8 @@ namespace HintServiceMeow.Core.Utilities
         private DateTime externalHintUntil = DateTime.MinValue;
         private DateTime lastSendTime = DateTime.MinValue;
         private TimeSpan minUpdateInterval = TimeSpan.Zero;
+        private string? lastSentText;
+        private bool forceNextSend;
 
         private volatile bool isDestructed = false;
 
@@ -198,6 +200,9 @@ namespace HintServiceMeow.Core.Utilities
         /// <param name="useFastUpdate">If <see langword="true"/>, schedules the update as soon as possible; otherwise applies a short delay.</param>
         public void ForceUpdate(bool useFastUpdate = false)
         {
+            if (HintTrace.IsEnabled)
+                HintTrace.Log($"display force-update fast={useFastUpdate}");
+
             ScheduleUpdate(useFastUpdate ? 0f : 0.3f);
         }
 
@@ -222,6 +227,13 @@ namespace HintServiceMeow.Core.Utilities
             {
                 displayOutputs.Add(output);
             }
+
+            lock (updateScheduleLock)
+            {
+                forceNextSend = true;
+            }
+
+            ScheduleUpdate();
         }
 
         /// <summary>
@@ -690,6 +702,23 @@ namespace HintServiceMeow.Core.Utilities
             hintCollection.ClearHints(name);
         }
 
+        internal void InternalReplaceHints(string name, IReadOnlyList<AbstractHint> hints)
+        {
+            foreach (AbstractHint hint in hintCollection.GetHints(name).ToList())
+            {
+                hint.PropertyChanged -= OnHintUpdate;
+                UpdateAvailable -= hint.TryUpdateHint;
+            }
+
+            foreach (AbstractHint hint in hints)
+            {
+                hint.PropertyChanged += OnHintUpdate;
+                UpdateAvailable += hint.TryUpdateHint;
+            }
+
+            hintCollection.SetHints(name, hints);
+        }
+
         internal IReadOnlyList<AbstractHint> InternalGetHints(string name)
         {
             return hintCollection.GetHints(name);
@@ -716,7 +745,12 @@ namespace HintServiceMeow.Core.Utilities
             {
                 if (updateTime > externalHintUntil)
                     externalHintUntil = updateTime;
+
+                forceNextSend = true;
             }
+
+            if (HintTrace.IsEnabled)
+                HintTrace.Log($"display external-wait delay={delay:0.###}s until={updateTime:O}");
 
             ScheduleUpdateAt(updateTime);
         }
@@ -775,6 +809,9 @@ namespace HintServiceMeow.Core.Utilities
 
             if (hint.SyncSpeed == HintSyncSpeed.UnSync)
                 return;
+
+            if (HintTrace.IsEnabled)
+                HintTrace.Log($"display hint-update property={ev.PropertyName} sync={hint.SyncSpeed} id=\"{hint.Id}\" guid={hint.Guid}");
 
             float maxWaitingTime = hint.SyncSpeed switch
             {
@@ -930,6 +967,9 @@ namespace HintServiceMeow.Core.Utilities
                         {
                             richText = hintParser.ParseToMessage(hintCollection, aspectRatio);
 
+                            if (HintTrace.IsEnabled)
+                                HintTrace.Log($"display parsed {HintTrace.Describe(richText)} aspect={aspectRatio:0.###}");
+
                             mainThreadDispatcher.Dispatch(() =>
                             {
                                 try
@@ -975,6 +1015,23 @@ namespace HintServiceMeow.Core.Utilities
 
         private void SendHint(string text)
         {
+            lock (updateScheduleLock)
+            {
+                if (!forceNextSend && string.Equals(lastSentText, text, StringComparison.Ordinal))
+                {
+                    if (HintTrace.IsEnabled)
+                        HintTrace.Log($"display skip-duplicate {HintTrace.Describe(text)}");
+
+                    return;
+                }
+
+                forceNextSend = false;
+                lastSentText = text;
+            }
+
+            if (HintTrace.IsEnabled)
+                HintTrace.Log($"display send {HintTrace.Describe(text)}");
+
             IDisplayOutput[] outputsSnapshot;
 
             lock (displayOutputsLock)

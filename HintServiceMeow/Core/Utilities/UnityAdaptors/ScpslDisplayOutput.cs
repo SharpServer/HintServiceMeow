@@ -15,7 +15,15 @@ namespace HintServiceMeow.Core.Utilities.UnityAdaptors
             try
             {
                 if (connectionToPlayer is not { isReady: true })
+                {
+                    if (HintTrace.IsEnabled)
+                        HintTrace.Log("output skip-not-ready");
+
                     return;
+                }
+
+                if (HintTrace.IsEnabled)
+                    HintTrace.Log($"output send-to-client {HintTrace.Describe(ev.Content)}");
 
                 ChunkedHintMessageFactory.Send(connectionToPlayer, ev.Content);
             }

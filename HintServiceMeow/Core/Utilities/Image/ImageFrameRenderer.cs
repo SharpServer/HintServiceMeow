@@ -6,6 +6,7 @@ namespace HintServiceMeow.Core.Utilities.Image
     using System.Runtime.InteropServices;
     using System.Text;
     using System.Threading;
+    using HintServiceMeow.Core.Utilities.Tools;
 
     /// <summary>
     /// Converts a <see cref="System.Drawing.Image"/> into per-frame SCP:SL-compatible rich-text
@@ -142,6 +143,9 @@ namespace HintServiceMeow.Core.Utilities.Image
                 warning = new InvalidOperationException($"{droppedFrames} frame(s) dropped during rendering.");
             }
 
+            if (HintTrace.IsEnabled)
+                HintTrace.Log($"image-render complete frames={frameCount} dropped={droppedFrames} warning=\"{warning?.Message ?? string.Empty}\"");
+
             onComplete(warning);
         }
 
@@ -155,6 +159,17 @@ namespace HintServiceMeow.Core.Utilities.Image
         /// </summary>
         private static string? TryBuildFrameText(Bitmap bitmap, string sizePrefix, bool compress)
         {
+            if (!compress)
+            {
+                string uncompressed = BuildFrameText(bitmap, sizePrefix, compress: false, threshold: 0f);
+                if (HintTrace.IsEnabled)
+                    HintTrace.Log($"image-frame built compress=false fit={Encoding.UTF8.GetByteCount(uncompressed) <= ImageRenderSettings.MaxFrameUtf8Bytes} {HintTrace.Describe(uncompressed)}");
+
+                return Encoding.UTF8.GetByteCount(uncompressed) <= ImageRenderSettings.MaxFrameUtf8Bytes
+                    ? uncompressed
+                    : null;
+            }
+
             float maxThreshold = ImageRenderSettings.MaxCompressionThreshold;
             float step = ImageRenderSettings.CompressionThresholdStep;
 
@@ -163,6 +178,9 @@ namespace HintServiceMeow.Core.Utilities.Image
                 string candidate = BuildFrameText(bitmap, sizePrefix, compress, threshold);
                 if (Encoding.UTF8.GetByteCount(candidate) <= ImageRenderSettings.MaxFrameUtf8Bytes)
                 {
+                    if (HintTrace.IsEnabled)
+                        HintTrace.Log($"image-frame built threshold={threshold:0.###} {HintTrace.Describe(candidate)}");
+
                     return candidate;
                 }
             }
@@ -196,8 +214,12 @@ namespace HintServiceMeow.Core.Utilities.Image
                 bitmap.UnlockBits(bmpData);
             }
 
-            // Build the rich-text string.
-            var sb = new StringBuilder(sizePrefix);
+            int estimatedCapacity = Math.Min(
+                ImageRenderSettings.MaxFrameUtf8Bytes,
+                sizePrefix.Length + (bitmap.Width * bitmap.Height * 12));
+            var sb = new StringBuilder(estimatedCapacity);
+            sb.Append(sizePrefix);
+
             Color pastPixel = Color.Empty;
             bool firstPixel = true;
 
@@ -251,13 +273,8 @@ namespace HintServiceMeow.Core.Utilities.Image
                 }
             }
 
-            // Close any open colour tag.
-            string partial = sb.ToString();
-            if (!partial.EndsWith("</color>\\n", StringComparison.Ordinal)
-                && !partial.EndsWith("</color>", StringComparison.Ordinal))
-            {
+            if (!firstPixel)
                 sb.Append("</color>");
-            }
 
             sb.Append("</line-height></size>");
             return sb.ToString();

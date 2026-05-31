@@ -7,6 +7,7 @@ namespace HintServiceMeow.Core.Utilities.Image
     using System.Net;
     using System.Threading;
     using System.Threading.Tasks;
+    using HintServiceMeow.Core.Utilities.Tools;
 
     /// <summary>
     /// Global LRU-style render cache.  Maps a <see cref="CacheKey"/> to a <see cref="CacheEntry"/>
@@ -91,6 +92,9 @@ namespace HintServiceMeow.Core.Utilities.Image
             {
                 if (Cache.TryGetValue(key, out var existing))
                 {
+                    if (HintTrace.IsEnabled)
+                        HintTrace.Log($"image-cache hit {Describe(key)} frames={existing.FrameCount} complete={existing.IsComplete}");
+
                     return existing;
                 }
 
@@ -101,6 +105,9 @@ namespace HintServiceMeow.Core.Utilities.Image
 
                 var entry = new CacheEntry();
                 Cache[key] = entry;
+
+                if (HintTrace.IsEnabled)
+                    HintTrace.Log($"image-cache miss {Describe(key)}");
 
                 // Task.Run returns immediately; actual I/O and rendering run on a thread-pool thread.
                 entry.RenderTask = Task.Run(() => StartRender(key, entry, ct), ct);
@@ -118,16 +125,25 @@ namespace HintServiceMeow.Core.Utilities.Image
 
             try
             {
+                if (HintTrace.IsEnabled)
+                    HintTrace.Log($"image-render load-start {Describe(key)}");
+
                 img = key.IsUrl ? LoadFromUrl(key.Location) : LoadFromFile(key.Location);
             }
             catch (Exception ex)
             {
+                if (HintTrace.IsEnabled)
+                    HintTrace.Log($"image-render load-error {Describe(key)} error=\"{ex.Message}\"");
+
                 entry.Complete(ex);
                 return;
             }
 
             using (img)
             {
+                if (HintTrace.IsEnabled)
+                    HintTrace.Log($"image-render start {Describe(key)} size={img.Width}x{img.Height}");
+
                 ImageFrameRenderer.Render(
                     img,
                     key.Scale,
@@ -169,5 +185,8 @@ namespace HintServiceMeow.Core.Utilities.Image
                 Cache.Remove(Cache.Keys.First());
             }
         }
+
+        private static string Describe(CacheKey key)
+            => $"location=\"{key.Location}\" isUrl={key.IsUrl} scale={key.Scale:0.###} shape={key.ShapeCorrection} compress={key.Compress}";
     }
 }

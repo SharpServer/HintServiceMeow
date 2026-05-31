@@ -244,6 +244,28 @@ namespace HintServiceMeow.Core.Models
             OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
         }
 
+        internal void SetHints(string assemblyName, IEnumerable<AbstractHint> hints)
+        {
+            if (assemblyName is null)
+                throw new ArgumentNullException(nameof(assemblyName));
+
+            List<AbstractHint> replacement = hints.ToList();
+
+            lock (collectionLock)
+            {
+                if (replacement.Count == 0)
+                {
+                    hintGroups.Remove(assemblyName);
+                }
+                else
+                {
+                    hintGroups[assemblyName] = replacement;
+                }
+            }
+
+            OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        }
+
         private void OnCollectionChanged(NotifyCollectionChangedEventArgs argument)
         {
             lock (collectionLock)

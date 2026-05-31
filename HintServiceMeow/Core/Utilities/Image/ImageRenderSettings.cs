@@ -7,8 +7,8 @@ namespace HintServiceMeow.Core.Utilities.Image
     /// </summary>
     public static class ImageRenderSettings
     {
-        private static int maxPixels = 40000;
-        private static int maxFrameUtf8Bytes = 240000;
+        private static int maxPixels = 10000;
+        private static int maxFrameUtf8Bytes = 32768;
         private static float compressionThresholdStep = 0.5f;
         private static float maxCompressionThreshold = 5f;
 

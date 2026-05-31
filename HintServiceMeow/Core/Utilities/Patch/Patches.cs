@@ -7,6 +7,7 @@
     using HarmonyLib;
     using Hints;
     using HintServiceMeow.Core.Extension;
+    using HintServiceMeow.Core.Utilities.Tools;
     using HintServiceMeow.Plugin;
     using LabApi.Features.Wrappers;
     using Mirror;
@@ -22,20 +23,33 @@
             try
             {
                 if (!Plugin.Instance.Config.UseHintCompatibilityAdapter)
+                {
+                    Trace("HintDisplay.Show", "pass-config-disabled", hint, null, null);
                     return true;
+                }
 
                 if (hint is not TextHint textHint)
+                {
+                    Trace("HintDisplay.Show", "pass-non-text", hint, null, null);
                     return true;
+                }
 
                 if (!TryGetTargetHub(__instance, out ReferenceHub referenceHub))
+                {
+                    Trace("HintDisplay.Show", "pass-no-target", hint, null, null);
                     return true;
+                }
 
                 string assemblyName = GetExternalCallingAssemblyName();
                 string content = TextGetter(textHint) ?? string.Empty;
 
                 if (!CanUseCompatibilityAdapter(assemblyName, content))
+                {
+                    Trace("HintDisplay.Show", "pass-disabled-assembly", hint, assemblyName, content);
                     return true;
+                }
 
+                Trace("HintDisplay.Show", "absorb", hint, assemblyName, content);
                 PlayerDisplay.Get(referenceHub).ShowCompatibilityHint(assemblyName, content, textHint.DurationScalar);
                 return false;
             }
@@ -56,6 +70,7 @@
                 if (!TryGetTargetHub(__instance, out ReferenceHub referenceHub))
                     return;
 
+                Trace("HintDisplay.Show", "original-ran", hint, null, null);
                 PlayerDisplay.Get(referenceHub).ForceUpdateAfter(hint.DurationScalar + 0.05f);
             }
             catch (Exception ex)
@@ -69,12 +84,19 @@
             try
             {
                 if (!Plugin.Instance.Config.UseHintCompatibilityAdapter)
+                {
+                    Trace("LabApi.SendHint(string)", "pass-config-disabled", null, null, text);
                     return true;
+                }
 
                 string assemblyName = GetExternalCallingAssemblyName();
                 if (!CanUseCompatibilityAdapter(assemblyName, text))
+                {
+                    Trace("LabApi.SendHint(string)", "pass-disabled-assembly", null, assemblyName, text);
                     return true;
+                }
 
+                Trace("LabApi.SendHint(string)", "absorb", null, assemblyName, text);
                 __instance.GetPlayerDisplay().ShowCompatibilityHint(assemblyName, text, duration);
                 return false;
             }
@@ -91,12 +113,19 @@
             try
             {
                 if (!Plugin.Instance.Config.UseHintCompatibilityAdapter)
+                {
+                    Trace("LabApi.SendHint(effects)", "pass-config-disabled", null, null, text);
                     return true;
+                }
 
                 string assemblyName = GetExternalCallingAssemblyName();
                 if (!CanUseCompatibilityAdapter(assemblyName, text))
+                {
+                    Trace("LabApi.SendHint(effects)", "pass-disabled-assembly", null, assemblyName, text);
                     return true;
+                }
 
+                Trace("LabApi.SendHint(effects)", "absorb", null, assemblyName, text);
                 __instance.GetPlayerDisplay().ShowCompatibilityHint(assemblyName, text, duration);
                 return false;
             }
@@ -114,12 +143,19 @@
             try
             {
                 if (!Plugin.Instance.Config.UseHintCompatibilityAdapter)
+                {
+                    Trace("Exiled.ShowHint(string)", "pass-config-disabled", null, null, message);
                     return true;
+                }
 
                 string assemblyName = GetExternalCallingAssemblyName();
                 if (!CanUseCompatibilityAdapter(assemblyName, message))
+                {
+                    Trace("Exiled.ShowHint(string)", "pass-disabled-assembly", null, assemblyName, message);
                     return true;
+                }
 
+                Trace("Exiled.ShowHint(string)", "absorb", null, assemblyName, message);
                 __instance.GetPlayerDisplay().ShowCompatibilityHint(assemblyName, message, duration);
                 return false;
             }
@@ -136,15 +172,25 @@
             try
             {
                 if (!Plugin.Instance.Config.UseHintCompatibilityAdapter)
+                {
+                    Trace("Exiled.ShowHint(Hint)", "pass-config-disabled", null, null, hint?.Content);
                     return true;
+                }
 
                 if (!hint.Show)
+                {
+                    Trace("Exiled.ShowHint(Hint)", "pass-hidden", null, null, hint.Content);
                     return true;
+                }
 
                 string assemblyName = GetExternalCallingAssemblyName();
                 if (!CanUseCompatibilityAdapter(assemblyName, hint.Content))
+                {
+                    Trace("Exiled.ShowHint(Hint)", "pass-disabled-assembly", null, assemblyName, hint.Content);
                     return true;
+                }
 
+                Trace("Exiled.ShowHint(Hint)", "absorb", null, assemblyName, hint.Content);
                 __instance.GetPlayerDisplay().ShowCompatibilityHint(assemblyName, hint.Content, hint.Duration);
                 return false;
             }
@@ -172,8 +218,21 @@
 
         private static bool CanUseCompatibilityAdapter(string assemblyName, string? content)
         {
-            return !Plugin.Instance.Config.DisabledCompatAdapter.Contains(assemblyName)
-                   && (content?.Length ?? 0) <= ushort.MaxValue;
+            return !Plugin.Instance.Config.DisabledCompatAdapter.Contains(assemblyName);
+        }
+
+        private static void Trace(string source, string action, Hint? hint, string? assemblyName, string? content)
+        {
+            if (!HintTrace.IsEnabled)
+                return;
+
+            string hintInfo = hint is null
+                ? string.Empty
+                : $" type={hint.GetType().Name} duration={hint.DurationScalar:0.###}";
+            string assemblyInfo = assemblyName is null ? string.Empty : $" assembly=\"{assemblyName}\"";
+            string contentInfo = content is null ? string.Empty : $" {HintTrace.Describe(content)}";
+
+            HintTrace.Log($"{source} {action}{hintInfo}{assemblyInfo}{contentInfo}");
         }
 
         private static string GetExternalCallingAssemblyName()
