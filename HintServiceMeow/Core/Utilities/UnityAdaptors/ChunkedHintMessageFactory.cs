@@ -15,15 +15,13 @@ namespace HintServiceMeow.Core.Utilities.UnityAdaptors
     /// Sending the whole rich text as TextHint.Text can therefore fail when Meow
     /// is used for very large HUD payloads, such as generated image text.
     ///
-    /// This factory moves the actual content into StringHintParameter chunks and
-    /// sends a tiny format string like "{0}{1}{2}" as TextHint.Text. The vanilla
-    /// client already resolves TextHint parameters, so this stays client-vanilla
-    /// compatible while bypassing the single-string limit.
+    /// This factory sends regular-sized content as normal TextHint text. Only
+    /// oversized content is moved into StringHintParameter chunks with a tiny
+    /// format string like "{0}{1}{2}" as TextHint.Text.
     /// </summary>
     internal static class ChunkedHintMessageFactory
     {
-        // Keep a safety margin below Mirror's 65534-byte string limit.
-        private const int MaxParameterUtf8Bytes = 60000;
+        private const int MaxStringUtf8Bytes = ushort.MaxValue - 2;
         private const float DefaultDurationScalar = 999999f;
         private const byte TextHintMessageType = 1;
         private const byte StringHintParameterType = 0;
@@ -37,8 +35,6 @@ namespace HintServiceMeow.Core.Utilities.UnityAdaptors
 
             content ??= string.Empty;
 
-            IReadOnlyList<string> chunks = SplitUtf8Safe(content, MaxParameterUtf8Bytes);
-
             using NetworkWriterPooled writer = NetworkWriterPool.Get();
 
             writer.WriteUShort(NetworkMessageId<HintMessage>.Id);
@@ -47,6 +43,16 @@ namespace HintServiceMeow.Core.Utilities.UnityAdaptors
 
             writer.WriteInt(1);
             writer.WriteHintEffect(AlwaysVisibleEffect);
+
+            if (Encoding.UTF8.GetByteCount(content) <= MaxStringUtf8Bytes)
+            {
+                WriteEmptyStringParameter(writer);
+                writer.WriteString(content);
+                connection.Send(writer.ToArraySegment());
+                return;
+            }
+
+            IReadOnlyList<string> chunks = SplitUtf8Safe(content, MaxStringUtf8Bytes);
 
             writer.WriteInt(chunks.Count);
             foreach (string chunk in chunks)
@@ -57,6 +63,13 @@ namespace HintServiceMeow.Core.Utilities.UnityAdaptors
 
             writer.WriteString(BuildFormatString(chunks.Count));
             connection.Send(writer.ToArraySegment());
+        }
+
+        private static void WriteEmptyStringParameter(NetworkWriter writer)
+        {
+            writer.WriteInt(1);
+            writer.WriteByte(StringHintParameterType);
+            writer.WriteString(string.Empty);
         }
 
         private static string BuildFormatString(int count)
