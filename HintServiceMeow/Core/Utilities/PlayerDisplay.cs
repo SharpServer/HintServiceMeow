@@ -45,6 +45,7 @@ namespace HintServiceMeow.Core.Utilities
         private Task? currentParserTask;
 
         private DateTime nextScheduledUpdateTime = DateTime.MaxValue;
+        private DateTime externalHintUntil = DateTime.MinValue;
         private DateTime lastSendTime = DateTime.MinValue;
         private TimeSpan minUpdateInterval = TimeSpan.Zero;
 
@@ -709,7 +710,15 @@ namespace HintServiceMeow.Core.Utilities
                 return;
             }
 
-            ScheduleUpdateAt(DateTime.Now.AddSeconds(delay));
+            DateTime updateTime = DateTime.Now.AddSeconds(delay);
+
+            lock (updateScheduleLock)
+            {
+                if (updateTime > externalHintUntil)
+                    externalHintUntil = updateTime;
+            }
+
+            ScheduleUpdateAt(updateTime);
         }
 
         private IEnumerator<float> CoroutineMethod()
@@ -788,7 +797,6 @@ namespace HintServiceMeow.Core.Utilities
                 return;
             }
 
-            Logger.Instance.Debug($"Scheduling update with max waiting time: {maxWaitingTime}s");
             IReadOnlyList<IReadOnlyList<AbstractHint>> allGroups = hintCollection.AllGroups;
             List<AbstractHint> predictingHints = new List<AbstractHint>();
 
@@ -800,33 +808,25 @@ namespace HintServiceMeow.Core.Utilities
                 }
             }
 
-            Logger.Instance.Debug($"Predicting hints count: {predictingHints.Count}");
             DateTime now = DateTime.Now;
             DateTime maxTime = now.AddSeconds(maxWaitingTime);
             DateTime delayedUpdateTime = now;
 
-            Logger.Instance.Debug($"delayed update: {delayedUpdateTime}");
             foreach (var h in predictingHints)
             {
                 if (h.SyncSpeed < updatingHint?.SyncSpeed || h == updatingHint)
                     continue;
 
-                Logger.Instance.Debug($"Predicting hint: {h.Id} ({h.Guid})");
                 DateTime estNextUpdate = h.UpdateAnalyser.EstimateNextUpdate();
 
                 if (estNextUpdate == DateTime.MaxValue)
                     continue;
-
-                TimeSpan delta = estNextUpdate - now;
-
-                Logger.Instance.Debug($"Estimated next update time: {estNextUpdate} (in {delta.TotalSeconds}s)");
 
                 // Only consider the updates that will happen within the max waiting time
                 if (estNextUpdate > delayedUpdateTime && estNextUpdate < maxTime)
                     delayedUpdateTime = estNextUpdate;
             }
 
-            Logger.Instance.Debug($"Final delayed update: {delayedUpdateTime}");
             float delay = (float)(delayedUpdateTime - now).TotalSeconds;
 
             // Clamp delay to maxWaitingTime
@@ -859,6 +859,14 @@ namespace HintServiceMeow.Core.Utilities
             {
                 if (nextScheduledUpdateTime == DateTime.MaxValue || nextScheduledUpdateTime > now)
                     return false;
+
+                if (externalHintUntil > now)
+                {
+                    nextScheduledUpdateTime = externalHintUntil;
+                    return false;
+                }
+
+                externalHintUntil = DateTime.MinValue;
 
                 if (minUpdateInterval > TimeSpan.Zero)
                 {

@@ -18,7 +18,7 @@ namespace HintServiceMeow.Core.Utilities.Tools
         /// <param name="message">The message to log.</param>
         public void Info(object message)
         {
-            LabApi.Features.Console.Logger.Info(message.ToString());
+            LabApi.Features.Console.Logger.Info(message?.ToString() ?? string.Empty);
         }
 
         /// <summary>
@@ -27,7 +27,7 @@ namespace HintServiceMeow.Core.Utilities.Tools
         /// <param name="message">The error message to log.</param>
         public void Error(object message)
         {
-            LabApi.Features.Console.Logger.Error(message.ToString());
+            LabApi.Features.Console.Logger.Error(message?.ToString() ?? string.Empty);
         }
 
         /// <summary>
@@ -36,7 +36,8 @@ namespace HintServiceMeow.Core.Utilities.Tools
         /// <param name="message">The debug message to log.</param>
         public void Debug(object message)
         {
-            LabApi.Features.Console.Logger.Debug(message.ToString(), Plugin.Plugin.Instance.Config.Debug);
+            bool isDebug = Plugin.Plugin.Instance?.Config?.Debug ?? false;
+            LabApi.Features.Console.Logger.Debug(message?.ToString() ?? string.Empty, isDebug);
         }
     }
 }
