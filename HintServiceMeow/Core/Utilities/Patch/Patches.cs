@@ -40,7 +40,7 @@
                     return true;
                 }
 
-                string assemblyName = GetExternalCallingAssemblyName();
+                (string assemblyName, string sourceKey) = GetExternalCallerInfo();
                 string content = TextGetter(textHint) ?? string.Empty;
 
                 if (!CanUseCompatibilityAdapter(assemblyName, content))
@@ -50,7 +50,7 @@
                 }
 
                 Trace("HintDisplay.Show", "absorb", hint, assemblyName, content);
-                PlayerDisplay.Get(referenceHub).ShowCompatibilityHint(assemblyName, content, textHint.DurationScalar);
+                PlayerDisplay.Get(referenceHub).ShowCompatibilityHint(assemblyName, sourceKey, content, textHint.DurationScalar);
                 return false;
             }
             catch (Exception ex)
@@ -94,7 +94,7 @@
                     return true;
                 }
 
-                string assemblyName = GetExternalCallingAssemblyName();
+                (string assemblyName, string sourceKey) = GetExternalCallerInfo();
                 if (!CanUseCompatibilityAdapter(assemblyName, text))
                 {
                     Trace("LabApi.SendHint(string)", "pass-disabled-assembly", null, assemblyName, text);
@@ -102,7 +102,7 @@
                 }
 
                 Trace("LabApi.SendHint(string)", "absorb", null, assemblyName, text);
-                __instance.GetPlayerDisplay().ShowCompatibilityHint(assemblyName, text, duration);
+                __instance.GetPlayerDisplay().ShowCompatibilityHint(assemblyName, sourceKey, text, duration);
                 return false;
             }
             catch (Exception ex)
@@ -123,7 +123,7 @@
                     return true;
                 }
 
-                string assemblyName = GetExternalCallingAssemblyName();
+                (string assemblyName, string sourceKey) = GetExternalCallerInfo();
                 if (!CanUseCompatibilityAdapter(assemblyName, text))
                 {
                     Trace("LabApi.SendHint(effects)", "pass-disabled-assembly", null, assemblyName, text);
@@ -131,7 +131,7 @@
                 }
 
                 Trace("LabApi.SendHint(effects)", "absorb", null, assemblyName, text);
-                __instance.GetPlayerDisplay().ShowCompatibilityHint(assemblyName, text, duration);
+                __instance.GetPlayerDisplay().ShowCompatibilityHint(assemblyName, sourceKey, text, duration);
                 return false;
             }
             catch (Exception ex)
@@ -153,7 +153,7 @@
                     return true;
                 }
 
-                string assemblyName = GetExternalCallingAssemblyName();
+                (string assemblyName, string sourceKey) = GetExternalCallerInfo();
                 if (!CanUseCompatibilityAdapter(assemblyName, message))
                 {
                     Trace("Exiled.ShowHint(string)", "pass-disabled-assembly", null, assemblyName, message);
@@ -161,7 +161,7 @@
                 }
 
                 Trace("Exiled.ShowHint(string)", "absorb", null, assemblyName, message);
-                __instance.GetPlayerDisplay().ShowCompatibilityHint(assemblyName, message, duration);
+                __instance.GetPlayerDisplay().ShowCompatibilityHint(assemblyName, sourceKey, message, duration);
                 return false;
             }
             catch (Exception ex)
@@ -188,7 +188,7 @@
                     return true;
                 }
 
-                string assemblyName = GetExternalCallingAssemblyName();
+                (string assemblyName, string sourceKey) = GetExternalCallerInfo();
                 if (!CanUseCompatibilityAdapter(assemblyName, hint.Content))
                 {
                     Trace("Exiled.ShowHint(Hint)", "pass-disabled-assembly", null, assemblyName, hint.Content);
@@ -196,7 +196,7 @@
                 }
 
                 Trace("Exiled.ShowHint(Hint)", "absorb", null, assemblyName, hint.Content);
-                __instance.GetPlayerDisplay().ShowCompatibilityHint(assemblyName, hint.Content, hint.Duration);
+                __instance.GetPlayerDisplay().ShowCompatibilityHint(assemblyName, sourceKey, hint.Content, hint.Duration);
                 return false;
             }
             catch (Exception ex)
@@ -240,13 +240,16 @@
             HintTrace.Log($"{source} {action}{hintInfo}{assemblyInfo}{contentInfo}");
         }
 
-        private static string GetExternalCallingAssemblyName()
+        private static (string AssemblyName, string SourceKey) GetExternalCallerInfo()
         {
             Assembly fallback = Assembly.GetCallingAssembly();
             StackFrame[]? frames = new StackTrace().GetFrames();
 
             if (frames is null)
-                return fallback.FullName;
+            {
+                string fallbackName = GetAssemblyName(fallback);
+                return (fallbackName, fallbackName);
+            }
 
             foreach (StackFrame frame in frames)
             {
@@ -256,10 +259,54 @@
                 if (assembly is null || ShouldSkipAssemblyFrame(assembly, method))
                     continue;
 
-                return assembly.FullName;
+                string assemblyName = GetAssemblyName(assembly);
+                return (assemblyName, BuildSourceKey(assemblyName, method));
             }
 
-            return fallback.FullName;
+            string fallbackAssemblyName = GetAssemblyName(fallback);
+            return (fallbackAssemblyName, fallbackAssemblyName);
+        }
+
+        private static string BuildSourceKey(string assemblyName, MethodBase? method)
+        {
+            if (method is null)
+                return assemblyName;
+
+            string declaringType = method.DeclaringType?.FullName ?? method.Module.Name;
+            string methodName = method.Name;
+            string moduleId = GetModuleId(method);
+            int metadataToken = GetMetadataToken(method);
+
+            return $"{assemblyName}|{declaringType}.{methodName}|{moduleId}:{metadataToken:X8}";
+        }
+
+        private static string GetAssemblyName(Assembly assembly)
+        {
+            return assembly.FullName ?? assembly.GetName().Name ?? "UnknownAssembly";
+        }
+
+        private static string GetModuleId(MethodBase method)
+        {
+            try
+            {
+                return method.Module.ModuleVersionId.ToString("N");
+            }
+            catch
+            {
+                return "unknown-module";
+            }
+        }
+
+        private static int GetMetadataToken(MethodBase method)
+        {
+            try
+            {
+                return method.MetadataToken;
+            }
+            catch
+            {
+                return 0;
+            }
         }
 
         private static bool ShouldSkipAssemblyFrame(Assembly assembly, MethodBase? method)
