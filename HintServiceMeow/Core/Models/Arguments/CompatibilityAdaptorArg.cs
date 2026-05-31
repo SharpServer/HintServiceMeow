@@ -5,10 +5,9 @@ namespace HintServiceMeow.Core.Models.Arguments
     /// </summary>
     public class CompatibilityAdaptorArg
     {
-        internal CompatibilityAdaptorArg(string assemblyName, string sourceKey, string? content, float duration)
+        internal CompatibilityAdaptorArg(string assemblyName, string? content, float duration)
         {
             AssemblyName = assemblyName;
-            SourceKey = sourceKey;
             Content = content;
             Duration = duration;
         }
@@ -17,11 +16,6 @@ namespace HintServiceMeow.Core.Models.Arguments
         /// Gets the name of the assembly that registered the hint.
         /// </summary>
         public string AssemblyName { get; }
-
-        /// <summary>
-        /// Gets the stable source key for the call site that registered the hint.
-        /// </summary>
-        public string SourceKey { get; }
 
         /// <summary>
         /// Gets the formatted hint content string to display, or <see langword="null"/> if there is no content.

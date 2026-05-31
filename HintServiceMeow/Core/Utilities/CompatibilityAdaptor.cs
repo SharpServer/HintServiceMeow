@@ -64,14 +64,13 @@
                 throw new ArgumentNullException(nameof(ev));
 
             string assemblyName = ev.AssemblyName;
-            string sourceKey = ev.SourceKey;
             string content = ev.Content ?? string.Empty;
             float duration = NormalizeDuration(ev.Duration);
 
             // Record the assembly that is using the compatibility adaptor
             RegisteredAssemblies.Add(assemblyName);
 
-            Trace("receive", assemblyName, content, $"source=\"{sourceKey}\" duration={duration:0.###}");
+            Trace("receive", assemblyName, content, $"duration={duration:0.###}");
 
             if (Plugin.Instance.Config.DisabledCompatAdapter.Contains(assemblyName))
             {
@@ -80,7 +79,7 @@
             }
 
             // Use internal assembly name to ensure safety
-            string internalAssemblyName = "CompatibilityAdaptor-" + sourceKey;
+            string internalAssemblyName = "CompatibilityAdaptor-" + assemblyName;
 
             // For negative duration or empty content, clear hint
             if (duration <= 0f || string.IsNullOrEmpty(content))

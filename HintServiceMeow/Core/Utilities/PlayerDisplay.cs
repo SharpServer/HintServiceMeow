@@ -729,7 +729,7 @@ namespace HintServiceMeow.Core.Utilities
             return hintCollection.GetHints(name, predicate);
         }
 
-        internal void ShowCompatibilityHint(string assemblyName, string sourceKey, string? content, float duration) => adapter.ShowHint(new CompatibilityAdaptorArg(assemblyName, sourceKey, content, duration));
+        internal void ShowCompatibilityHint(string assemblyName, string? content, float duration) => adapter.ShowHint(new CompatibilityAdaptorArg(assemblyName, content, duration));
 
         internal void ForceUpdateAfter(float delay)
         {
