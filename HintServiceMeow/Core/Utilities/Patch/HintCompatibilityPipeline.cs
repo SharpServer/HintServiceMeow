@@ -71,6 +71,9 @@ namespace HintServiceMeow.Core.Utilities.Patch
                 return;
             }
 
+            if (TryRecoverOriginalHint(playerDisplay, hint))
+                return;
+
             if (!playerDisplay.ShouldCoordinateExternalHint)
             {
                 Trace("HintDisplay.Show", "original-ran-no-hsm-content", hint, null, null);
@@ -108,11 +111,7 @@ namespace HintServiceMeow.Core.Utilities.Patch
                 return false;
             }
 
-            if (!TryGetExternalCallingAssemblyName(out string assemblyName))
-            {
-                Trace(source, "pass-no-external-assembly", hint, null, rawContent);
-                return false;
-            }
+            string assemblyName = GetCompatibilityAssemblyName(source, hint, rawContent);
 
             if (CompatibilityAssembly.IsFrameworkAssemblyName(CompatibilityAssembly.GetSimpleName(assemblyName)))
             {
@@ -184,6 +183,38 @@ namespace HintServiceMeow.Core.Utilities.Patch
             return Math.Min(duration, CompatibilityAdaptor.MaxCompatibilityDuration) + VanillaRestorePadding;
         }
 
+        private static bool TryRecoverOriginalHint(PlayerDisplay playerDisplay, Hint hint)
+        {
+            if (!IsAdapterEnabled())
+                return false;
+
+            if (hint is not TextHint textHint)
+                return false;
+
+            string rawText = TextGetter(textHint) ?? string.Empty;
+            string assemblyName = GetCompatibilityAssemblyName("HintDisplay.Show", hint, rawText);
+
+            if (CompatibilityAssembly.IsDisabled(assemblyName))
+            {
+                Trace("HintDisplay.Show", "original-disabled-assembly", hint, assemblyName, rawText);
+                return false;
+            }
+
+            string content = RenderText(rawText, textHint.Parameters);
+            if (IsClearRequest(content, hint.DurationScalar))
+            {
+                Trace("HintDisplay.Show", "original-clear", hint, assemblyName, content);
+                playerDisplay.ShowCompatibilityHint(assemblyName, content, hint.DurationScalar);
+                playerDisplay.ResumeExternalHintImmediately();
+                return true;
+            }
+
+            Trace("HintDisplay.Show", "recover-original", hint, assemblyName, content);
+            playerDisplay.ShowCompatibilityHint(assemblyName, content, hint.DurationScalar);
+            playerDisplay.ResumeExternalHintImmediately();
+            return true;
+        }
+
         private static bool IsClearRequest(Hint hint)
         {
             if (hint is null)
@@ -202,6 +233,16 @@ namespace HintServiceMeow.Core.Utilities.Patch
         private static bool IsClearRequest(string content, float duration)
         {
             return float.IsNaN(duration) || duration <= 0f || string.IsNullOrEmpty(content);
+        }
+
+        private static string GetCompatibilityAssemblyName(string source, Hint? hint, string? rawContent)
+        {
+            if (TryGetExternalCallingAssemblyName(out string assemblyName))
+                return assemblyName;
+
+            assemblyName = $"{CompatibilityAssembly.UnknownAssemblyName}:{source}";
+            Trace(source, "fallback-no-external-assembly", hint, assemblyName, rawContent);
+            return assemblyName;
         }
 
         private static bool TryGetTargetHub(HintDisplay hintDisplay, out ReferenceHub referenceHub)
