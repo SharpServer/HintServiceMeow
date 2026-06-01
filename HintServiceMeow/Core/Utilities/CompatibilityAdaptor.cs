@@ -84,8 +84,14 @@
             string internalAssemblyName = "CompatibilityAdaptor-" + assemblyName;
 
             // For negative duration or empty content, clear hint
-            if (duration <= 0f || string.IsNullOrEmpty(content))
+            if (float.IsNaN(duration) || duration <= 0f || string.IsNullOrEmpty(content))
             {
+                if (removeHandles.TryGetValue(internalAssemblyName, out ICoroutine removeHandle))
+                {
+                    removeHandle.Kill();
+                    removeHandles.Remove(internalAssemblyName);
+                }
+
                 lock (stateLock)
                 {
                     activeContents.Remove(internalAssemblyName);
@@ -93,7 +99,7 @@
 
                 Trace("clear", assemblyName, content, "duration-or-empty");
                 playerDisplay.InternalClearHint(internalAssemblyName);
-                playerDisplay.ForceUpdate(useFastUpdate: true);
+                playerDisplay.ResumeExternalHintImmediately();
                 return;
             }
 

@@ -64,6 +64,13 @@ namespace HintServiceMeow.Core.Utilities.Patch
                 return;
             }
 
+            if (IsClearRequest(hint))
+            {
+                Trace("HintDisplay.Show", "original-clear", hint, null, null);
+                playerDisplay.ResumeExternalHintImmediately();
+                return;
+            }
+
             if (!playerDisplay.ShouldCoordinateExternalHint)
             {
                 Trace("HintDisplay.Show", "original-ran-no-hsm-content", hint, null, null);
@@ -122,8 +129,23 @@ namespace HintServiceMeow.Core.Utilities.Patch
             }
 
             string content = contentFactory();
-            Trace(source, "absorb", hint, assemblyName, content);
-            PlayerDisplay.Get(referenceHub).ShowCompatibilityHint(assemblyName, content, duration);
+            bool isClearRequest = IsClearRequest(content, duration);
+            PlayerDisplay playerDisplay;
+            if (isClearRequest)
+            {
+                if (!PlayerDisplay.TryGet(referenceHub, out playerDisplay))
+                {
+                    Trace(source, "pass-clear-no-hsm-display", hint, assemblyName, content);
+                    return false;
+                }
+            }
+            else
+            {
+                playerDisplay = PlayerDisplay.Get(referenceHub);
+            }
+
+            Trace(source, isClearRequest ? "clear" : "absorb", hint, assemblyName, content);
+            playerDisplay.ShowCompatibilityHint(assemblyName, content, duration);
             return true;
         }
 
@@ -160,6 +182,26 @@ namespace HintServiceMeow.Core.Utilities.Patch
                 return CompatibilityAdaptor.MaxCompatibilityDuration;
 
             return Math.Min(duration, CompatibilityAdaptor.MaxCompatibilityDuration) + VanillaRestorePadding;
+        }
+
+        private static bool IsClearRequest(Hint hint)
+        {
+            if (hint is null)
+                return false;
+
+            if (float.IsNaN(hint.DurationScalar) || hint.DurationScalar <= 0f)
+                return true;
+
+            if (hint is not TextHint textHint)
+                return false;
+
+            string rawText = TextGetter(textHint) ?? string.Empty;
+            return string.IsNullOrEmpty(rawText) || string.IsNullOrEmpty(RenderText(rawText, textHint.Parameters));
+        }
+
+        private static bool IsClearRequest(string content, float duration)
+        {
+            return float.IsNaN(duration) || duration <= 0f || string.IsNullOrEmpty(content);
         }
 
         private static bool TryGetTargetHub(HintDisplay hintDisplay, out ReferenceHub referenceHub)

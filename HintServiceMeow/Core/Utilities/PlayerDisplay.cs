@@ -791,6 +791,20 @@ namespace HintServiceMeow.Core.Utilities
             ScheduleUpdateAt(updateTime);
         }
 
+        internal void ResumeExternalHintImmediately()
+        {
+            lock (updateScheduleLock)
+            {
+                externalHintUntil = DateTime.MinValue;
+                forceNextSend = true;
+            }
+
+            if (HintTrace.IsEnabled)
+                HintTrace.Log("display external-resume-immediate");
+
+            ScheduleUpdateAt(DateTime.MinValue);
+        }
+
         private IEnumerator<float> CoroutineMethod()
         {
             while (true)
