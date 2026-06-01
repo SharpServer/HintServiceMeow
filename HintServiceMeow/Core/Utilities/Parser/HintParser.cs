@@ -18,6 +18,7 @@ namespace HintServiceMeow.Core.Utilities.Parser
     {
         private const string PlaceholderTop = "<line-height=0><voffset=9999>P</voffset>";
         private const string PlaceholderBottom = "<line-height=0><voffset=-9999>P</voffset>";
+        private const string RichTextScopeReset = "</mark></color></u></s></strikethrough></sup></sub></uppercase></lowercase></allcaps></smallcaps></align></size></b></i>";
         private const float BaselineEdgeOffset = -359.1111f; // EdgeOffset at 16:9 (1.7777778f)
 
         private readonly ICache<Guid, ValueTuple<float, float>> dynamicHintPositionCache;
@@ -129,7 +130,7 @@ namespace HintServiceMeow.Core.Utilities.Parser
                 // When a group ends
                 if (orderedHintGroups[i] is null)
                 {
-                    messageBuilder.AppendLine("</align></size></b></i>"); // Make sure one group will not affect another group
+                    messageBuilder.AppendLine(RichTextScopeReset); // Make sure one group will not affect another group
                     continue;
                 }
 
