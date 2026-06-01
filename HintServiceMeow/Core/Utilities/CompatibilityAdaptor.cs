@@ -21,7 +21,9 @@
     internal class CompatibilityAdaptor : ICompatibilityAdaptor, IDestructible
     {
         internal const float MaxCompatibilityDuration = 30f;
-        internal static readonly HashSet<string> RegisteredAssemblies = new(); // All assemblies that used compatibility adaptor
+
+        private static readonly HashSet<string> RegisteredAssemblySet = new(StringComparer.Ordinal);
+        private static readonly object RegisteredAssembliesLock = new();
         private static readonly ICache<string, IReadOnlyList<Hint>> HintCache = new Cache<string, IReadOnlyList<Hint>>(500);
 
         private readonly Dictionary<string, ICoroutine> removeHandles = new();
@@ -68,11 +70,11 @@
             float duration = NormalizeDuration(ev.Duration);
 
             // Record the assembly that is using the compatibility adaptor
-            RegisteredAssemblies.Add(assemblyName);
+            RegisterAssembly(assemblyName);
 
             Trace("receive", assemblyName, content, $"duration={duration:0.###}");
 
-            if (Plugin.Instance.Config.DisabledCompatAdapter.Contains(assemblyName))
+            if (CompatibilityAssembly.IsDisabled(assemblyName))
             {
                 Trace("drop-disabled-assembly", assemblyName, content);
                 return;
@@ -132,6 +134,25 @@
             // Start new remove action, remove after the Duration
             Trace("parse-start", assemblyName, content);
             _ = InternalShowHint(internalAssemblyName, content, expireTime);
+        }
+
+        internal static void RegisterAssembly(string assemblyName)
+        {
+            if (string.IsNullOrWhiteSpace(assemblyName))
+                return;
+
+            lock (RegisteredAssembliesLock)
+            {
+                RegisteredAssemblySet.Add(assemblyName);
+            }
+        }
+
+        internal static IReadOnlyCollection<string> GetRegisteredAssemblies()
+        {
+            lock (RegisteredAssembliesLock)
+            {
+                return RegisteredAssemblySet.ToList().AsReadOnly();
+            }
         }
 
         private async Task InternalShowHint(string internalAssemblyName, string content, DateTime expireTime)
@@ -225,8 +246,15 @@
         private IReadOnlyList<Hint> ParseRichTextToHints(string content)
         {
             RichTextParser parser = richTextParserPool.Rent();
-            IReadOnlyList<LineInfo> lineInfoList = parser.ParseText(content, 40);
-            richTextParserPool.Return(parser);
+            IReadOnlyList<LineInfo> lineInfoList;
+            try
+            {
+                lineInfoList = parser.ParseText(content, 40);
+            }
+            finally
+            {
+                richTextParserPool.Return(parser);
+            }
 
             if (lineInfoList.IsEmpty())
             {

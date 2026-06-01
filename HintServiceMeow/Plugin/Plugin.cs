@@ -94,6 +94,8 @@
             ServerEvents.WaitingForPlayers -= OnWaitingForPlayers;
 #endif
 
+            Patcher.Unpatch();
+
 #if EXILED
             base.OnDisabled();
 #endif

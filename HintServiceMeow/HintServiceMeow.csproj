@@ -36,8 +36,9 @@
     <ErrorReport>prompt</ErrorReport>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Exiled|AnyCPU'">
+  <PropertyGroup Condition="'$(Configuration)' == 'Exiled'">
     <AssemblyName>HintServiceMeow-Exiled</AssemblyName>
+    <DefineConstants>$(DefineConstants);EXILED</DefineConstants>
     <Optimize>true</Optimize>
     <ErrorReport>prompt</ErrorReport>
   </PropertyGroup>

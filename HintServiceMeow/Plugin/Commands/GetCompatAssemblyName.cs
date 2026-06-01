@@ -21,7 +21,7 @@
 
             sb.AppendLine("The following assemblies are using Compatibility Adaptor in HintServiceMeow:");
 
-            foreach (string name in CompatibilityAdaptor.RegisteredAssemblies)
+            foreach (string name in CompatibilityAdaptor.GetRegisteredAssemblies())
             {
                 sb.Append("- ");
                 sb.AppendLine(name);

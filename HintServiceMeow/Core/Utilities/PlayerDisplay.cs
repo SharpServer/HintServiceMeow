@@ -135,6 +135,20 @@ namespace HintServiceMeow.Core.Utilities
             set => adapter = value ?? throw new ArgumentNullException(nameof(value));
         }
 
+        internal bool ShouldCoordinateExternalHint
+        {
+            get
+            {
+                if (hintCollection.AllHints.Any(hint => !hint.Hide))
+                    return true;
+
+                lock (updateScheduleLock)
+                {
+                    return !string.IsNullOrEmpty(lastSentText);
+                }
+            }
+        }
+
         /// <summary>
         /// Gets or creates the <see cref="PlayerDisplay"/> instance for the specified reference hub.
         /// </summary>
@@ -623,6 +637,28 @@ namespace HintServiceMeow.Core.Utilities
             hintCollection.ClearHints(null);
 
             ((IDestructible)adapter).Destruct(); // Stop compatibility adaptor's coroutine
+        }
+
+        internal static bool TryGet(ReferenceHub referenceHub, out PlayerDisplay playerDisplay)
+        {
+            if (referenceHub is null)
+                throw new ArgumentNullException(nameof(referenceHub));
+
+            lock (PlayerDisplayListLock)
+            {
+                foreach (PlayerDisplay existingPlayerDisplay in PlayerDisplayList)
+                {
+                    if (existingPlayerDisplay.playerContext is ReferenceHubContext referenceHubContext
+                        && referenceHubContext.ReferenceHub == referenceHub)
+                    {
+                        playerDisplay = existingPlayerDisplay;
+                        return true;
+                    }
+                }
+            }
+
+            playerDisplay = null!;
+            return false;
         }
 
         /// <summary>
