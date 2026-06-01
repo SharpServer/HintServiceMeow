@@ -139,13 +139,7 @@ namespace HintServiceMeow.Core.Utilities
         {
             get
             {
-                if (hintCollection.AllHints.Any(hint => !hint.Hide))
-                    return true;
-
-                lock (updateScheduleLock)
-                {
-                    return !string.IsNullOrEmpty(lastSentText);
-                }
+                return hintCollection.HasVisibleNonCompatibilityHints();
             }
         }
 

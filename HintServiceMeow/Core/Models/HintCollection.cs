@@ -99,6 +99,23 @@ namespace HintServiceMeow.Core.Models
             return GetHints(assemblyName).Where(predicate).ToList().AsReadOnly();
         }
 
+        internal bool HasVisibleNonCompatibilityHints()
+        {
+            lock (collectionLock)
+            {
+                foreach (KeyValuePair<string, List<AbstractHint>> group in hintGroups)
+                {
+                    if (group.Key.StartsWith(CompatibilityGroupPrefix, StringComparison.Ordinal))
+                        continue;
+
+                    if (group.Value.Any(IsVisibleHint))
+                        return true;
+                }
+
+                return false;
+            }
+        }
+
         internal void AddHint(string assemblyName, AbstractHint hint)
         {
             lock (collectionLock)
@@ -295,6 +312,13 @@ namespace HintServiceMeow.Core.Models
             return hintGroups
                 .OrderByDescending(x => x.Key.StartsWith(CompatibilityGroupPrefix, StringComparison.Ordinal))
                 .Select(x => x.Value);
+        }
+
+        private bool IsVisibleHint(AbstractHint hint)
+        {
+            return hint is not null
+                && !hint.Hide
+                && !string.IsNullOrEmpty(hint.Content.GetText());
         }
     }
 }

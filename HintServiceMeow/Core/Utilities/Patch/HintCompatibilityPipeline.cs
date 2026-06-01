@@ -67,18 +67,19 @@ namespace HintServiceMeow.Core.Utilities.Patch
             if (IsClearRequest(hint))
             {
                 Trace("HintDisplay.Show", "original-clear", hint, null, null);
-                playerDisplay.ResumeExternalHintImmediately();
+                if (playerDisplay.ShouldCoordinateExternalHint)
+                    playerDisplay.ResumeExternalHintImmediately();
                 return;
             }
-
-            if (TryRecoverOriginalHint(playerDisplay, hint))
-                return;
 
             if (!playerDisplay.ShouldCoordinateExternalHint)
             {
                 Trace("HintDisplay.Show", "original-ran-no-hsm-content", hint, null, null);
                 return;
             }
+
+            if (TryRecoverOriginalHint(playerDisplay, hint))
+                return;
 
             float restoreDelay = ShouldPreferHsmOverVanillaHints()
                 ? PreferHsmRestoreDelay
@@ -129,18 +130,16 @@ namespace HintServiceMeow.Core.Utilities.Patch
 
             string content = contentFactory();
             bool isClearRequest = IsClearRequest(content, duration);
-            PlayerDisplay playerDisplay;
-            if (isClearRequest)
+            if (!PlayerDisplay.TryGet(referenceHub, out PlayerDisplay playerDisplay))
             {
-                if (!PlayerDisplay.TryGet(referenceHub, out playerDisplay))
-                {
-                    Trace(source, "pass-clear-no-hsm-display", hint, assemblyName, content);
-                    return false;
-                }
+                Trace(source, isClearRequest ? "pass-clear-no-hsm-display" : "pass-no-hsm-display", hint, assemblyName, content);
+                return false;
             }
-            else
+
+            if (!playerDisplay.ShouldCoordinateExternalHint)
             {
-                playerDisplay = PlayerDisplay.Get(referenceHub);
+                Trace(source, isClearRequest ? "pass-clear-no-hsm-content" : "pass-no-hsm-content", hint, assemblyName, content);
+                return false;
             }
 
             Trace(source, isClearRequest ? "clear" : "absorb", hint, assemblyName, content);
