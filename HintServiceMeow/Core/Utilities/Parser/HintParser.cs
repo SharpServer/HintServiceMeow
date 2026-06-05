@@ -19,7 +19,10 @@ namespace HintServiceMeow.Core.Utilities.Parser
         private const string PlaceholderTop = "<line-height=0><voffset=9999>P</voffset>";
         private const string PlaceholderBottom = "<line-height=0><voffset=-9999>P</voffset>";
         private const string RichTextScopeReset = "</color></align></size></b></i>";
-        private const float BaselineEdgeOffset = -359.1111f; // EdgeOffset at 16:9 (1.7777778f)
+        private const float BaselineAspectRatio = 16f / 9f;
+        private const float CanvasHeight = 1080f - 1f; // Slight padding, matching the original edge calculation.
+        private const float DisplayAreaWidth = 1200f;
+        private const float MaxEdgePadding = 1200f;
 
         private readonly ICache<Guid, ValueTuple<float, float>> dynamicHintPositionCache;
         private readonly ICoordinateTools coordinateTool;
@@ -293,12 +296,31 @@ namespace HintServiceMeow.Core.Utilities.Parser
             };
         }
 
-        private float EdgeOffset(float aspectRatio)
+        private float GetResolutionAlignedXCoordinate(Hint hint, float aspectRatio)
         {
-            const float Base = 1080f - 1f; // slight padding
-            const float DisplayAreaWidth = 1200f;
+            float edgeDelta = GetHorizontalEdgePadding(aspectRatio) - GetHorizontalEdgePadding(BaselineAspectRatio);
 
-            return -System.Math.Min(((aspectRatio * Base) - DisplayAreaWidth) / 2f, DisplayAreaWidth);
+            return hint.Alignment switch
+            {
+                HintAlignment.Left => hint.XCoordinate - edgeDelta,
+                _ => hint.XCoordinate,
+            };
+        }
+
+        private float GetResolutionAlignedRightMargin(Hint hint, float aspectRatio)
+        {
+            float edgeDelta = GetHorizontalEdgePadding(aspectRatio) - GetHorizontalEdgePadding(BaselineAspectRatio);
+            float margin = -hint.XCoordinate - edgeDelta;
+
+            return Math.Max(0f, margin);
+        }
+
+        private float GetHorizontalEdgePadding(float aspectRatio)
+        {
+            if (float.IsNaN(aspectRatio) || float.IsInfinity(aspectRatio) || aspectRatio <= 0)
+                aspectRatio = BaselineAspectRatio;
+
+            return Math.Min(((aspectRatio * CanvasHeight) - DisplayAreaWidth) / 2f, MaxEdgePadding);
         }
 
         private void ParseToRichText(Hint hint, StringBuilder messageBuilder, float aspectRatio)
@@ -339,12 +361,23 @@ namespace HintServiceMeow.Core.Utilities.Parser
                     continue;
 
                 bool xCoordinateWritten = false;
+                bool rightMarginWritten = false;
                 if (hint.ResolutionBasedAlign)
                 {
                     if (hint.Alignment == HintAlignment.Left)
                     {
-                        float offset = EdgeOffset(aspectRatio);
-                        messageBuilder.AppendFormat("<pos={0:0.#}>", offset + (hint.XCoordinate - BaselineEdgeOffset));
+                        messageBuilder.AppendFormat("<pos={0:0.#}>", GetResolutionAlignedXCoordinate(hint, aspectRatio));
+                        xCoordinateWritten = true;
+                    }
+                    else if (hint.Alignment == HintAlignment.Right)
+                    {
+                        float rightMargin = GetResolutionAlignedRightMargin(hint, aspectRatio);
+                        if (rightMargin > 0)
+                        {
+                            messageBuilder.AppendFormat("<margin-right={0:0.#}>", rightMargin);
+                            rightMarginWritten = true;
+                        }
+
                         xCoordinateWritten = true;
                     }
                 }
@@ -356,30 +389,12 @@ namespace HintServiceMeow.Core.Utilities.Parser
                 if (vOffset != 0)
                     messageBuilder.AppendFormat("<voffset={0:0.#}>", vOffset); // Y coordinate
 
-                if (hint.ResolutionBasedAlign)
-                {
-                    if (hint.Alignment == HintAlignment.Left)
-                    {
-                        messageBuilder.Append(lineList[i].RawText);
-                    }
-                    else if (hint.Alignment == HintAlignment.Right)
-                    {
-                        float offset = EdgeOffset(aspectRatio);
-                        messageBuilder.Append(lineList[i].RawText);
-                        messageBuilder.AppendFormat("<space={0:0.#}><size=0>.</size>", offset - (hint.XCoordinate - (-BaselineEdgeOffset)));
-                    }
-                    else
-                    {
-                        messageBuilder.Append(lineList[i].RawText);
-                    }
-                }
-                else
-                {
-                    messageBuilder.Append(lineList[i].RawText); // Content
-                }
+                messageBuilder.Append(lineList[i].RawText); // Content
 
                 if (vOffset != 0)
                     messageBuilder.Append("</voffset>"); // End Y coordinate
+                if (rightMarginWritten)
+                    messageBuilder.Append("</margin>");
                 messageBuilder.AppendLine(); // Break line
             }
 

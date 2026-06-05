@@ -11,7 +11,7 @@ namespace HintServiceMeow.Core.Interface
         /// Parses the specified hint collection into a formatted message string.
         /// </summary>
         /// <param name="collection">The collection of hints to parse.</param>
-        /// <param name="aspectRatio">ignore.</param>
+        /// <param name="aspectRatio">The player's screen aspect ratio used for resolution-based horizontal alignment.</param>
         /// <returns>A formatted string representing the hints for display.</returns>
         string ParseToMessage(HintCollection collection, float aspectRatio = 1.777777f);
     }
