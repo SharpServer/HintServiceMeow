@@ -2,14 +2,14 @@ namespace HintServiceMeow.Core.Utilities.Patch
 {
     using System;
     using System.Diagnostics;
-    using System.Globalization;
-    using System.Linq;
     using System.Reflection;
-    using Hints;
     using HintServiceMeow.Core.Utilities.Tools;
     using HintServiceMeow.Plugin;
     using Mirror;
-    using Logger = HintServiceMeow.Core.Utilities.Tools.Logger;
+    using HintDisplay = global::Hints.HintDisplay;
+    using HintParameter = global::Hints.HintParameter;
+    using ScpslHint = global::Hints.Hint;
+    using TextHint = global::Hints.TextHint;
 
     internal static class HintCompatibilityPipeline
     {
@@ -18,7 +18,7 @@ namespace HintServiceMeow.Core.Utilities.Patch
 
         private static readonly Func<TextHint, string> TextGetter = (Func<TextHint, string>)GetTextGetter();
 
-        internal static bool TryAbsorbHintDisplay(Hint hint, HintDisplay hintDisplay)
+        internal static bool TryAbsorbHintDisplay(ScpslHint hint, HintDisplay hintDisplay)
         {
             if (hint is not TextHint textHint)
             {
@@ -35,7 +35,7 @@ namespace HintServiceMeow.Core.Utilities.Patch
             string rawText = TextGetter(textHint) ?? string.Empty;
             float duration = textHint.DurationScalar;
 
-            return TryAbsorb(referenceHub, "HintDisplay.Show", hint, rawText, () => RenderText(rawText, textHint.Parameters), duration);
+            return TryAbsorb(referenceHub, "HintDisplay.Show", hint, rawText, textHint.Parameters, duration);
         }
 
         internal static bool TryAbsorbWrapperHint(ReferenceHub? referenceHub, string source, string? text, HintParameter[]? parameters, float duration)
@@ -47,10 +47,10 @@ namespace HintServiceMeow.Core.Utilities.Patch
             }
 
             string rawText = text ?? string.Empty;
-            return TryAbsorb(referenceHub, source, null, rawText, () => RenderText(rawText, parameters), duration);
+            return TryAbsorb(referenceHub, source, null, rawText, parameters, duration);
         }
 
-        internal static void AfterOriginalHint(Hint hint, HintDisplay hintDisplay, bool runOriginal)
+        internal static void AfterOriginalHint(ScpslHint hint, HintDisplay hintDisplay, bool runOriginal)
         {
             if (!runOriginal || hint is null)
                 return;
@@ -89,7 +89,7 @@ namespace HintServiceMeow.Core.Utilities.Patch
             playerDisplay.ForceUpdateAfter(restoreDelay);
         }
 
-        internal static void Trace(string source, string action, Hint? hint, string? assemblyName, string? content, string? extra = null)
+        internal static void Trace(string source, string action, ScpslHint? hint, string? assemblyName, string? content, string? extra = null)
         {
             if (!HintTrace.IsEnabled)
                 return;
@@ -104,7 +104,7 @@ namespace HintServiceMeow.Core.Utilities.Patch
             HintTrace.Log($"{source} {action}{hintInfo}{assemblyInfo}{contentInfo}{extraInfo}");
         }
 
-        private static bool TryAbsorb(ReferenceHub referenceHub, string source, Hint? hint, string rawContent, Func<string> contentFactory, float duration)
+        private static bool TryAbsorb(ReferenceHub referenceHub, string source, ScpslHint? hint, string rawContent, HintParameter[]? parameters, float duration)
         {
             if (!IsAdapterEnabled())
             {
@@ -128,22 +128,22 @@ namespace HintServiceMeow.Core.Utilities.Patch
                 return false;
             }
 
-            string content = contentFactory();
-            bool isClearRequest = IsClearRequest(content, duration);
+            parameters ??= [];
+            bool isClearRequest = IsClearRequest(rawContent, duration);
             if (!PlayerDisplay.TryGet(referenceHub, out PlayerDisplay playerDisplay))
             {
-                Trace(source, isClearRequest ? "pass-clear-no-hsm-display" : "pass-no-hsm-display", hint, assemblyName, content);
+                Trace(source, isClearRequest ? "pass-clear-no-hsm-display" : "pass-no-hsm-display", hint, assemblyName, rawContent);
                 return false;
             }
 
             if (!playerDisplay.ShouldCoordinateExternalHint)
             {
-                Trace(source, isClearRequest ? "pass-clear-no-hsm-content" : "pass-no-hsm-content", hint, assemblyName, content);
+                Trace(source, isClearRequest ? "pass-clear-no-hsm-content" : "pass-no-hsm-content", hint, assemblyName, rawContent);
                 return false;
             }
 
-            Trace(source, isClearRequest ? "clear" : "absorb", hint, assemblyName, content);
-            playerDisplay.ShowCompatibilityHint(assemblyName, content, duration);
+            Trace(source, isClearRequest ? "clear" : "absorb", hint, assemblyName, rawContent, $"params={parameters.Length}");
+            playerDisplay.ShowCompatibilityHint(assemblyName, rawContent, parameters, duration);
             return true;
         }
 
@@ -182,7 +182,7 @@ namespace HintServiceMeow.Core.Utilities.Patch
             return Math.Min(duration, CompatibilityAdaptor.MaxCompatibilityDuration) + VanillaRestorePadding;
         }
 
-        private static bool TryRecoverOriginalHint(PlayerDisplay playerDisplay, Hint hint)
+        private static bool TryRecoverOriginalHint(PlayerDisplay playerDisplay, ScpslHint hint)
         {
             if (!IsAdapterEnabled())
                 return false;
@@ -199,22 +199,22 @@ namespace HintServiceMeow.Core.Utilities.Patch
                 return false;
             }
 
-            string content = RenderText(rawText, textHint.Parameters);
-            if (IsClearRequest(content, hint.DurationScalar))
+            HintParameter[] parameters = textHint.Parameters ?? [];
+            if (IsClearRequest(rawText, hint.DurationScalar))
             {
-                Trace("HintDisplay.Show", "original-clear", hint, assemblyName, content);
-                playerDisplay.ShowCompatibilityHint(assemblyName, content, hint.DurationScalar);
+                Trace("HintDisplay.Show", "original-clear", hint, assemblyName, rawText);
+                playerDisplay.ShowCompatibilityHint(assemblyName, rawText, parameters, hint.DurationScalar);
                 playerDisplay.ResumeExternalHintImmediately();
                 return true;
             }
 
-            Trace("HintDisplay.Show", "recover-original", hint, assemblyName, content);
-            playerDisplay.ShowCompatibilityHint(assemblyName, content, hint.DurationScalar);
+            Trace("HintDisplay.Show", "recover-original", hint, assemblyName, rawText, $"params={parameters.Length}");
+            playerDisplay.ShowCompatibilityHint(assemblyName, rawText, parameters, hint.DurationScalar);
             playerDisplay.ResumeExternalHintImmediately();
             return true;
         }
 
-        private static bool IsClearRequest(Hint hint)
+        private static bool IsClearRequest(ScpslHint hint)
         {
             if (hint is null)
                 return false;
@@ -226,7 +226,7 @@ namespace HintServiceMeow.Core.Utilities.Patch
                 return false;
 
             string rawText = TextGetter(textHint) ?? string.Empty;
-            return string.IsNullOrEmpty(rawText) || string.IsNullOrEmpty(RenderText(rawText, textHint.Parameters));
+            return string.IsNullOrEmpty(rawText);
         }
 
         private static bool IsClearRequest(string content, float duration)
@@ -234,7 +234,7 @@ namespace HintServiceMeow.Core.Utilities.Patch
             return float.IsNaN(duration) || duration <= 0f || string.IsNullOrEmpty(content);
         }
 
-        private static string GetCompatibilityAssemblyName(string source, Hint? hint, string? rawContent)
+        private static string GetCompatibilityAssemblyName(string source, ScpslHint? hint, string? rawContent)
         {
             if (TryGetExternalCallingAssemblyName(out string assemblyName))
                 return assemblyName;
@@ -256,61 +256,6 @@ namespace HintServiceMeow.Core.Utilities.Patch
                 return false;
 
             return ReferenceHub.TryGetHub(connection, out referenceHub);
-        }
-
-        private static string RenderText(string? text, HintParameter[]? parameters)
-        {
-            text ??= string.Empty;
-
-            if (parameters is null || parameters.Length == 0)
-                return text;
-
-            object[] formattedParameters = parameters
-                .Select(GetFormattedParameter)
-                .Cast<object>()
-                .ToArray();
-
-            try
-            {
-                return string.Format(CultureInfo.InvariantCulture, text, formattedParameters);
-            }
-            catch (FormatException)
-            {
-                return text;
-            }
-        }
-
-        private static string GetFormattedParameter(HintParameter? parameter)
-        {
-            if (parameter is null)
-                return string.Empty;
-
-            try
-            {
-                if (parameter.Formatted is null)
-                    parameter.Update(0f);
-
-                if (parameter.Formatted is not null)
-                    return parameter.Formatted;
-            }
-            catch (Exception ex)
-            {
-                Logger.Instance.Debug($"Failed to update hint parameter '{parameter.GetType().FullName}': {ex}");
-            }
-
-            try
-            {
-                PropertyInfo? valueProperty = parameter.GetType().GetProperty(
-                    "Value",
-                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-
-                object? value = valueProperty?.GetValue(parameter);
-                return value?.ToString() ?? string.Empty;
-            }
-            catch
-            {
-                return string.Empty;
-            }
         }
 
         private static bool TryGetExternalCallingAssemblyName(out string assemblyName)

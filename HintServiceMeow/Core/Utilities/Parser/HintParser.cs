@@ -10,6 +10,7 @@ namespace HintServiceMeow.Core.Utilities.Parser
     using HintServiceMeow.Core.Models.Parser;
     using HintServiceMeow.Core.Utilities.Pools;
     using HintServiceMeow.Core.Utilities.Tools;
+    using HintParameter = global::Hints.HintParameter;
 
     /// <summary>
     /// Used to parse AbstractHint to rich text message.
@@ -57,6 +58,9 @@ namespace HintServiceMeow.Core.Utilities.Parser
         }
 
         public string ParseToMessage(HintCollection collection, float aspectRatio = 1.777777f)
+            => ParseToMessageContent(collection, aspectRatio).Content;
+
+        internal ParsedHintMessage ParseToMessageContent(HintCollection collection, float aspectRatio = 1.777777f)
         {
             IReadOnlyList<IReadOnlyList<AbstractHint>> allGroups = collection.AllGroups;
 
@@ -125,6 +129,7 @@ namespace HintServiceMeow.Core.Utilities.Parser
             }
 
             StringBuilder messageBuilder = stringBuilderPool.Rent();
+            var messageParameters = new List<HintParameter>();
 
             messageBuilder.AppendLine(PlaceholderTop); // Place Holder
 
@@ -137,7 +142,7 @@ namespace HintServiceMeow.Core.Utilities.Parser
                     continue;
                 }
 
-                ParseToRichText(orderedHintGroups[i], messageBuilder, aspectRatio);
+                ParseToRichText(orderedHintGroups[i], messageBuilder, messageParameters, aspectRatio);
             }
 
             messageBuilder.AppendLine(PlaceholderBottom); // Place Holder
@@ -156,7 +161,7 @@ namespace HintServiceMeow.Core.Utilities.Parser
 
             string message = messageBuilder.ToString();
             stringBuilderPool.Return(messageBuilder);
-            return message;
+            return new ParsedHintMessage(message, messageParameters.ToArray());
         }
 
         private Hint? ParseToHint(DynamicHint dynamicHint, IList<TextArea> colliders)
@@ -310,7 +315,8 @@ namespace HintServiceMeow.Core.Utilities.Parser
         private float GetResolutionAlignedRightMargin(Hint hint, float aspectRatio)
         {
             float edgeDelta = GetHorizontalEdgePadding(aspectRatio) - GetHorizontalEdgePadding(BaselineAspectRatio);
-            float margin = -hint.XCoordinate - edgeDelta;
+            float rightEdge = DisplayAreaWidth + hint.XCoordinate + edgeDelta;
+            float margin = DisplayAreaWidth - rightEdge;
 
             return Math.Max(0f, margin);
         }
@@ -323,10 +329,11 @@ namespace HintServiceMeow.Core.Utilities.Parser
             return Math.Min(((aspectRatio * CanvasHeight) - DisplayAreaWidth) / 2f, MaxEdgePadding);
         }
 
-        private void ParseToRichText(Hint hint, StringBuilder messageBuilder, float aspectRatio)
+        private void ParseToRichText(Hint hint, StringBuilder messageBuilder, List<HintParameter> messageParameters, float aspectRatio)
         {
             // Remove illegal tags
-            string text = RemoveIllegalTags(hint.Content.GetText() ?? string.Empty);
+            HintParameter[] parameters = hint.Parameters;
+            string text = RemoveIllegalTags(hint.Content.GetText() ?? string.Empty, parameters);
 
             // Parse into line infos
             RichTextParser parser = richTextParserPool.Rent();
@@ -352,6 +359,8 @@ namespace HintServiceMeow.Core.Utilities.Parser
                     case HintAlignment.Right: messageBuilder.Append("<align=right>"); break;
                 }
             }
+
+            var parameterIndexMap = new Dictionary<int, int>();
 
             for (int i = 0; i < lineList.Count; i++)
             {
@@ -389,7 +398,12 @@ namespace HintServiceMeow.Core.Utilities.Parser
                 if (vOffset != 0)
                     messageBuilder.AppendFormat("<voffset={0:0.#}>", vOffset); // Y coordinate
 
-                messageBuilder.Append(lineList[i].RawText); // Content
+                HintParameterFormat.AppendRemappedText(
+                    lineList[i].RawText,
+                    parameters,
+                    messageBuilder,
+                    messageParameters,
+                    parameterIndexMap); // Content
 
                 if (vOffset != 0)
                     messageBuilder.Append("</voffset>"); // End Y coordinate
@@ -404,7 +418,7 @@ namespace HintServiceMeow.Core.Utilities.Parser
             messageBuilder.Append("</size>");
         }
 
-        private string RemoveIllegalTags(string raw)
+        private string RemoveIllegalTags(string raw, HintParameter[] parameters)
         {
             if (string.IsNullOrEmpty(raw))
                 return string.Empty;
@@ -417,6 +431,14 @@ namespace HintServiceMeow.Core.Utilities.Parser
                 char c = raw[i];
                 if (c == '{' || c == '}')
                 {
+                    if (HintParameterFormat.TryReadSimplePlaceholder(raw, i, out int parameterIndex, out int endIndex) &&
+                        parameterIndex >= 0 &&
+                        parameterIndex < parameters.Length)
+                    {
+                        i = endIndex;
+                        continue;
+                    }
+
                     needsModification = true;
                     break;
                 }
@@ -444,7 +466,16 @@ namespace HintServiceMeow.Core.Utilities.Parser
             {
                 char c = raw[i];
 
-                // Remove all { and } since {} are somehow not displayable
+                if (HintParameterFormat.TryReadSimplePlaceholder(raw, i, out int parameterIndex, out int endIndex) &&
+                    parameterIndex >= 0 &&
+                    parameterIndex < parameters.Length)
+                {
+                    sb.Append(raw, i, endIndex - i + 1);
+                    i = endIndex + 1;
+                    continue;
+                }
+
+                // Remove unmatched or unsupported braces since bare {} are not displayable.
                 if (c == '{' || c == '}')
                 {
                     i++;

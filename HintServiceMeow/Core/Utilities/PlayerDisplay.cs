@@ -22,6 +22,8 @@ namespace HintServiceMeow.Core.Utilities
     /// </summary>
     public class PlayerDisplay : IPlayerDisplay, IDestructible
     {
+        private static readonly TimeSpan PeriodicRefreshInterval = TimeSpan.FromSeconds(5);
+
         private static readonly HashSet<PlayerDisplay> PlayerDisplayList = [];
         private static readonly object PlayerDisplayListLock = new();
 
@@ -49,6 +51,7 @@ namespace HintServiceMeow.Core.Utilities
         private DateTime lastSendTime = DateTime.MinValue;
         private TimeSpan minUpdateInterval = TimeSpan.Zero;
         private string? lastSentText;
+        private Hints.HintParameter[] lastSentParameters = [];
         private bool forceNextSend;
 
         private volatile bool isDestructed = false;
@@ -759,7 +762,8 @@ namespace HintServiceMeow.Core.Utilities
             return hintCollection.GetHints(name, predicate);
         }
 
-        internal void ShowCompatibilityHint(string assemblyName, string? content, float duration) => adapter.ShowHint(new CompatibilityAdaptorArg(assemblyName, content, duration));
+        internal void ShowCompatibilityHint(string assemblyName, string? content, Hints.HintParameter[]? parameters, float duration) =>
+            adapter.ShowHint(new CompatibilityAdaptorArg(assemblyName, content, parameters, duration));
 
         internal void ForceUpdateAfter(float delay)
         {
@@ -816,9 +820,20 @@ namespace HintServiceMeow.Core.Utilities
                 {
                     UpdateAvailable?.Invoke(new UpdateAvailableEventArg(this));
 
-                    // Periodic refresh keeps long-lived hints alive even when no property changed.
-                    if (DateTime.Now - lastSendTime > TimeSpan.FromSeconds(5))
+                    // Periodically re-send unchanged content because vanilla HintDisplay calls can
+                    // replace the client's hint without changing HSM's internal render state.
+                    if (DateTime.Now - lastSendTime > PeriodicRefreshInterval)
+                    {
+                        lock (updateScheduleLock)
+                        {
+                            forceNextSend = true;
+                        }
+
+                        if (HintTrace.IsEnabled)
+                            HintTrace.Log("display periodic-refresh force-resend");
+
                         ScheduleUpdate();
+                    }
 
                     if (TryConsumeScheduledUpdate())
                         StartParserTask();
@@ -1005,14 +1020,16 @@ namespace HintServiceMeow.Core.Utilities
                 currentParserTask =
                     ConcurrentTaskDispatcher.Instance.Enqueue(() =>
                     {
-                        string richText;
+                        ParsedHintMessage message;
 
                         try
                         {
-                            richText = hintParser.ParseToMessage(hintCollection, aspectRatio);
+                            message = hintParser is HintParser defaultParser
+                                ? defaultParser.ParseToMessageContent(hintCollection, aspectRatio)
+                                : new ParsedHintMessage(hintParser.ParseToMessage(hintCollection, aspectRatio));
 
                             if (HintTrace.IsEnabled)
-                                HintTrace.Log($"display parsed {HintTrace.Describe(richText)} aspect={aspectRatio:0.###}");
+                                HintTrace.Log($"display parsed {HintTrace.Describe(message.Content)} params={message.Parameters.Length} aspect={aspectRatio:0.###}");
 
                             mainThreadDispatcher.Dispatch(() =>
                             {
@@ -1022,7 +1039,7 @@ namespace HintServiceMeow.Core.Utilities
                                     if (this.isDestructed)
                                         return;
 
-                                    SendHint(richText);
+                                    SendHint(message);
                                 }
                                 catch (Exception ex)
                                 {
@@ -1030,9 +1047,6 @@ namespace HintServiceMeow.Core.Utilities
                                 }
                                 finally
                                 {
-                                    if (!this.isDestructed)
-                                        lastSendTime = DateTime.Now;
-
                                     lock (currentParserTaskLock)
                                     {
                                         currentParserTask = null; // Does this in main thread
@@ -1057,24 +1071,30 @@ namespace HintServiceMeow.Core.Utilities
             }
         }
 
-        private void SendHint(string text)
+        private void SendHint(ParsedHintMessage message)
         {
+            string text = message.Content;
+            Hints.HintParameter[] parameters = message.Parameters;
+
             lock (updateScheduleLock)
             {
-                if (!forceNextSend && string.Equals(lastSentText, text, StringComparison.Ordinal))
+                if (!forceNextSend &&
+                    string.Equals(lastSentText, text, StringComparison.Ordinal) &&
+                    SameParameterReferences(lastSentParameters, parameters))
                 {
                     if (HintTrace.IsEnabled)
-                        HintTrace.Log($"display skip-duplicate {HintTrace.Describe(text)}");
+                        HintTrace.Log($"display skip-duplicate {HintTrace.Describe(text)} params={parameters.Length}");
 
                     return;
                 }
 
                 forceNextSend = false;
                 lastSentText = text;
+                lastSentParameters = parameters;
             }
 
             if (HintTrace.IsEnabled)
-                HintTrace.Log($"display send {HintTrace.Describe(text)}");
+                HintTrace.Log($"display send {HintTrace.Describe(text)} params={parameters.Length}");
 
             IDisplayOutput[] outputsSnapshot;
 
@@ -1083,7 +1103,7 @@ namespace HintServiceMeow.Core.Utilities
                 outputsSnapshot = displayOutputs.ToArray();
             }
 
-            var arg = new DisplayOutputArg(this, text);
+            var arg = new DisplayOutputArg(this, text, parameters);
             foreach (IDisplayOutput output in outputsSnapshot)
             {
                 try
@@ -1095,6 +1115,28 @@ namespace HintServiceMeow.Core.Utilities
                     Logger.Instance.Error(ex);
                 }
             }
+
+            lock (updateScheduleLock)
+            {
+                lastSendTime = DateTime.Now;
+            }
+        }
+
+        private bool SameParameterReferences(Hints.HintParameter[] left, Hints.HintParameter[] right)
+        {
+            if (ReferenceEquals(left, right))
+                return true;
+
+            if (left.Length != right.Length)
+                return false;
+
+            for (int i = 0; i < left.Length; i++)
+            {
+                if (!ReferenceEquals(left[i], right[i]))
+                    return false;
+            }
+
+            return true;
         }
     }
 }

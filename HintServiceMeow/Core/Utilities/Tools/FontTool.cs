@@ -7,7 +7,6 @@
     using System.IO.Compression;
     using System.Linq;
     using System.Reflection;
-    using System.Threading.Tasks;
     using HintServiceMeow.Core.Enum;
     using HintServiceMeow.Core.Interface;
 
@@ -20,11 +19,44 @@
         private const float DefaultFontWidth = 67.81861f;
 
         private static readonly ConcurrentDictionary<char, float> ChWidth = new();
+        private static readonly object LoadLock = new();
+        private static bool isLoaded;
 
         static FontTool()
         {
-            ConcurrentTaskDispatcher.Instance.Enqueue(() =>
+            EnsureLoaded();
+        }
+
+        public static IFontTool Instance { get; } = new FontTool();
+
+        public float GetCharWidth(char c, float fontSize, TextStyle style)
+        {
+            if (char.IsControl(c))
+                return 0f;
+
+            EnsureLoaded();
+
+            float ratio = fontSize / BaseFontSize * 1.25f; // 1.25 is estimated value
+
+            if ((style & TextStyle.Bold) == TextStyle.Bold)
+                ratio *= 1.15f;
+
+            if (!ChWidth.TryGetValue(c, out float width))
+                width = DefaultFontWidth;
+
+            return width * ratio;
+        }
+
+        private static void EnsureLoaded()
+        {
+            if (isLoaded)
+                return;
+
+            lock (LoadLock)
             {
+                if (isLoaded)
+                    return;
+
                 try
                 {
                     using Stream? infoStream = Assembly.GetExecutingAssembly()
@@ -57,27 +89,11 @@
                 {
                     Logger.Instance.Error(ex);
                 }
-
-                return Task.CompletedTask;
-            });
-        }
-
-        public static IFontTool Instance { get; } = new FontTool();
-
-        public float GetCharWidth(char c, float fontSize, TextStyle style)
-        {
-            if (char.IsControl(c))
-                return 0f;
-
-            float ratio = fontSize / BaseFontSize * 1.25f; // 1.25 is estimated value
-
-            if ((style & TextStyle.Bold) == TextStyle.Bold)
-                ratio *= 1.15f;
-
-            if (!ChWidth.TryGetValue(c, out float width))
-                width = DefaultFontWidth;
-
-            return width * ratio;
+                finally
+                {
+                    isLoaded = true;
+                }
+            }
         }
     }
 }

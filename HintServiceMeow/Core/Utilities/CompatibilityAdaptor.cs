@@ -14,6 +14,7 @@
     using HintServiceMeow.Core.Utilities.Tools;
     using HintServiceMeow.Core.Utilities.UnityAdaptors;
     using HintServiceMeow.Plugin;
+    using HintParameter = global::Hints.HintParameter;
 
     /// <summary>
     /// Adapt raw unity rich text into HSM.
@@ -27,7 +28,7 @@
         private static readonly ICache<string, IReadOnlyList<Hint>> HintCache = new Cache<string, IReadOnlyList<Hint>>(500);
 
         private readonly Dictionary<string, ICoroutine> removeHandles = new();
-        private readonly Dictionary<string, string> activeContents = new();
+        private readonly Dictionary<string, CompatibilityHintPayload> activePayloads = new();
         private readonly object stateLock = new();
         private readonly PlayerDisplay playerDisplay; // Initialize in constructor
         private readonly IPool<RichTextParser> richTextParserPool; // Initialize in constructor
@@ -67,12 +68,14 @@
 
             string assemblyName = ev.AssemblyName;
             string content = ev.Content ?? string.Empty;
+            HintParameter[] parameters = ev.Parameters;
+            var payload = new CompatibilityHintPayload(content, parameters);
             float duration = NormalizeDuration(ev.Duration);
 
             // Record the assembly that is using the compatibility adaptor
             RegisterAssembly(assemblyName);
 
-            Trace("receive", assemblyName, content, $"duration={duration:0.###}");
+            Trace("receive", assemblyName, content, $"duration={duration:0.###} params={parameters.Length}");
 
             if (CompatibilityAssembly.IsDisabled(assemblyName))
             {
@@ -94,7 +97,7 @@
 
                 lock (stateLock)
                 {
-                    activeContents.Remove(internalAssemblyName);
+                    activePayloads.Remove(internalAssemblyName);
                 }
 
                 Trace("clear", assemblyName, content, "duration-or-empty");
@@ -115,7 +118,7 @@
                 {
                     lock (stateLock)
                     {
-                        activeContents.Remove(internalAssemblyName);
+                        activePayloads.Remove(internalAssemblyName);
                     }
 
                     playerDisplay.InternalClearHint(internalAssemblyName);
@@ -125,21 +128,21 @@
 
             lock (stateLock)
             {
-                if (activeContents.TryGetValue(internalAssemblyName, out string activeContent)
-                    && string.Equals(activeContent, content, StringComparison.Ordinal))
+                if (activePayloads.TryGetValue(internalAssemblyName, out CompatibilityHintPayload activePayload)
+                    && activePayload.CanRefreshWithoutReplace(payload))
                 {
                     Trace("refresh-same", assemblyName, content, "extended-remove-timer");
                     return;
                 }
 
-                activeContents[internalAssemblyName] = content;
+                activePayloads[internalAssemblyName] = payload;
             }
 
             DateTime expireTime = DateTime.Now.AddSeconds(Math.Min(duration, 5f)); // Wait for at most 5 second and at least the duration
 
             // Start new remove action, remove after the Duration
             Trace("parse-start", assemblyName, content);
-            _ = InternalShowHint(internalAssemblyName, content, expireTime);
+            _ = InternalShowHint(internalAssemblyName, payload, expireTime);
         }
 
         internal static void RegisterAssembly(string assemblyName)
@@ -161,31 +164,35 @@
             }
         }
 
-        private async Task InternalShowHint(string internalAssemblyName, string content, DateTime expireTime)
+        private async Task InternalShowHint(string internalAssemblyName, CompatibilityHintPayload payload, DateTime expireTime)
         {
+            string content = payload.Content;
+
             try
             {
                 // Check if the hint is already cached
-                if (HintCache.TryGet(content, out IReadOnlyList<Hint> cachedHintList))
+                if (!payload.HasParameters && HintCache.TryGet(content, out IReadOnlyList<Hint> cachedHintList))
                 {
                     Trace("cache-hit", internalAssemblyName, content, $"hints={cachedHintList.Count}");
-                    ReplaceHint(internalAssemblyName, content, cachedHintList);
+                    ReplaceHint(internalAssemblyName, payload, cachedHintList);
                     return;
                 }
 
                 // Parse the content to hints
                 IReadOnlyList<Hint> hintList = await ConcurrentTaskDispatcher.Instance.
-                    Enqueue(() => Task.FromResult(ParseRichTextToHints(content)))
+                    Enqueue(() => Task.FromResult(ParseRichTextToHints(payload)))
                     .ConfigureAwait(false);
 
                 // Add result to cache
-                HintCache.Add(content, hintList);
+                if (!payload.HasParameters)
+                    HintCache.Add(content, hintList);
+
                 Trace("parse-complete", internalAssemblyName, content, $"hints={hintList.Count}");
 
                 // Update if the content is not outdated
                 if (DateTime.Now < expireTime)
                 {
-                    ReplaceHint(internalAssemblyName, content, hintList);
+                    ReplaceHint(internalAssemblyName, payload, hintList);
                 }
                 else
                 {
@@ -200,12 +207,14 @@
             }
         }
 
-        private void ReplaceHint(string assemblyName, string content, IReadOnlyList<Hint> hints)
+        private void ReplaceHint(string assemblyName, CompatibilityHintPayload payload, IReadOnlyList<Hint> hints)
         {
+            string content = payload.Content;
+
             lock (stateLock)
             {
-                if (!activeContents.TryGetValue(assemblyName, out string activeContent)
-                    || !string.Equals(activeContent, content, StringComparison.Ordinal))
+                if (!activePayloads.TryGetValue(assemblyName, out CompatibilityHintPayload activePayload)
+                    || !ReferenceEquals(activePayload, payload))
                 {
                     Trace("drop-stale-replace", assemblyName, content);
                     return;
@@ -249,8 +258,11 @@
             HintTrace.Log($"compat {action} assembly=\"{assemblyName}\" {HintTrace.Describe(content)}{suffix}");
         }
 
-        private IReadOnlyList<Hint> ParseRichTextToHints(string content)
+        private IReadOnlyList<Hint> ParseRichTextToHints(CompatibilityHintPayload payload)
         {
+            string content = payload.Content;
+            HintParameter[] parameters = payload.Parameters;
+
             RichTextParser parser = richTextParserPool.Rent();
             IReadOnlyList<LineInfo> lineInfoList;
             try
@@ -279,6 +291,7 @@
                     result.Add(new Hint
                     {
                         Text = lineInfo.RawText,
+                        Parameters = parameters,
                         XCoordinate = lineInfo.Pos,
                         YCoordinate = 700 - (totalHeight / 2) + lineInfo.Height + accumulatedHeight,
                         YCoordinateAlign = HintVerticalAlign.Bottom,
@@ -293,6 +306,22 @@
             }
 
             return result.AsReadOnly();
+        }
+
+        private sealed class CompatibilityHintPayload(string content, HintParameter[] parameters)
+        {
+            public string Content { get; } = content;
+
+            public HintParameter[] Parameters { get; } = parameters ?? [];
+
+            public bool HasParameters => Parameters.Length > 0;
+
+            public bool CanRefreshWithoutReplace(CompatibilityHintPayload other)
+            {
+                return !HasParameters &&
+                       !other.HasParameters &&
+                       string.Equals(Content, other.Content, StringComparison.Ordinal);
+            }
         }
     }
 }

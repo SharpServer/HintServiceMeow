@@ -23,7 +23,7 @@
         public bool UseHintCompatibilityAdapter { get; set; } = false;
 
         [Description("When a vanilla hint cannot be absorbed by the compatibility adapter, redraw HSM quickly instead of waiting until the vanilla hint expires.")]
-        public bool PreferHsmOverVanillaHints { get; set; } = false;
+        public bool PreferHsmOverVanillaHints { get; set; } = true;
 
         [Description("The assembly that you do not want to included in the Compatibility Adapter. Use command GetCompatAssemblyName to get the name of all the assemblies")]
         public List<string> DisabledCompatAdapter { get; set; } =

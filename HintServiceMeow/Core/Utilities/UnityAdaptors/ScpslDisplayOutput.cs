@@ -23,9 +23,9 @@ namespace HintServiceMeow.Core.Utilities.UnityAdaptors
                 }
 
                 if (HintTrace.IsEnabled)
-                    HintTrace.Log($"output send-to-client {HintTrace.Describe(ev.Content)}");
+                    HintTrace.Log($"output send-to-client params={ev.Parameters.Length} {HintTrace.Describe(ev.Content)}");
 
-                ChunkedHintMessageFactory.Send(connectionToPlayer, ev.Content);
+                ChunkedHintMessageFactory.Send(connectionToPlayer, ev.Content, ev.Parameters);
             }
             catch (Exception ex)
             {

@@ -9,6 +9,7 @@ namespace HintServiceMeow.Core.Models.Hints
     using HintServiceMeow.Core.Models.HintContent;
     using HintServiceMeow.Core.Utilities;
     using HintServiceMeow.Core.Utilities.Tools;
+    using HintParameter = global::Hints.HintParameter;
 
     /// <summary>
     /// Represents the base class for all hints displayed on a player's screen.
@@ -29,6 +30,8 @@ namespace HintServiceMeow.Core.Models.Hints
         private float lineHeight;
 
         private AbstractHintContent content = new StringContent(string.Empty);
+
+        private HintParameter[] parameters = [];
 
         private bool hide;
 
@@ -59,6 +62,7 @@ namespace HintServiceMeow.Core.Models.Hints
                 fontSize = hint.fontSize;
                 lineHeight = hint.lineHeight;
                 content = hint.content;
+                parameters = hint.parameters;
                 hide = hint.hide;
                 resolutionBasedAlign = hint.resolutionBasedAlign;
                 blocksDynamicHints = hint.blocksDynamicHints;
@@ -369,6 +373,44 @@ namespace HintServiceMeow.Core.Models.Hints
         }
 
         /// <summary>
+        /// Gets or sets native SCP:SL hint parameters used by placeholders such as <c>{0}</c>.
+        /// </summary>
+        public HintParameter[] Parameters
+        {
+            get
+            {
+                Lock.EnterReadLock();
+                try
+                {
+                    return parameters;
+                }
+                finally
+                {
+                    Lock.ExitReadLock();
+                }
+            }
+
+            set
+            {
+                Lock.EnterWriteLock();
+                try
+                {
+                    value ??= [];
+                    if (ReferenceEquals(parameters, value))
+                        return;
+
+                    parameters = value;
+                }
+                finally
+                {
+                    Lock.ExitWriteLock();
+                }
+
+                OnHintUpdated(nameof(Parameters));
+            }
+        }
+
+        /// <summary>
         /// Gets or sets the auto-text handler used to dynamically generate hint content.
         /// Setting this property replaces the current content with an <see cref="AutoContent"/> instance.
         /// Returns <see langword="null"/> if the current content is not an <see cref="AutoContent"/>.
@@ -550,6 +592,7 @@ namespace HintServiceMeow.Core.Models.Hints
             this.fontSize = copyFrom.fontSize;
             this.lineHeight = copyFrom.lineHeight;
             this.content = copyFrom.content;
+            this.parameters = copyFrom.parameters;
             this.hide = copyFrom.hide;
             this.resolutionBasedAlign = copyFrom.resolutionBasedAlign;
             this.blocksDynamicHints = copyFrom.blocksDynamicHints;
@@ -562,6 +605,7 @@ namespace HintServiceMeow.Core.Models.Hints
         {
             this.id = string.Empty;
             this.content = null!;
+            this.parameters = [];
             this.blocksDynamicHints = true;
         }
 

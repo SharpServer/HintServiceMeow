@@ -3,11 +3,14 @@ namespace HintServiceMeow.Core.Utilities.UnityAdaptors
     using System;
     using System.Collections.Generic;
     using System.Text;
-    using Hints;
     using HintServiceMeow.Core.Utilities.Tools;
     using Mirror;
     using UnityEngine;
     using Utils.Networking;
+    using AlphaCurveHintEffect = global::Hints.AlphaCurveHintEffect;
+    using HintMessage = global::Hints.HintMessage;
+    using HintParameter = global::Hints.HintParameter;
+    using StringHintParameter = global::Hints.StringHintParameter;
 
     /// <summary>
     /// Sends TextHint messages in a RueI-style chunked format.
@@ -29,12 +32,17 @@ namespace HintServiceMeow.Core.Utilities.UnityAdaptors
 
         private static readonly AlphaCurveHintEffect AlwaysVisibleEffect = new(AnimationCurve.Constant(0f, DefaultDurationScalar, 1f));
 
-        internal static void Send(NetworkConnection connection, string content, float durationScalar = DefaultDurationScalar)
+        internal static void Send(
+            NetworkConnection connection,
+            string content,
+            HintParameter[]? parameters = null,
+            float durationScalar = DefaultDurationScalar)
         {
             if (connection is null)
                 throw new ArgumentNullException(nameof(connection));
 
             content ??= string.Empty;
+            HintParameter[] hintParameters = NormalizeParameters(parameters);
 
             using NetworkWriterPooled writer = NetworkWriterPool.Get();
 
@@ -48,28 +56,38 @@ namespace HintServiceMeow.Core.Utilities.UnityAdaptors
             if (Encoding.UTF8.GetByteCount(content) <= MaxStringUtf8Bytes)
             {
                 if (HintTrace.IsEnabled)
-                    HintTrace.Log($"network text-direct duration={durationScalar:0.###} {HintTrace.Describe(content)}");
+                    HintTrace.Log($"network text-direct duration={durationScalar:0.###} params={hintParameters.Length} {HintTrace.Describe(content)}");
 
-                WriteEmptyStringParameter(writer);
+                if (hintParameters.Length == 0)
+                    WriteEmptyStringParameter(writer);
+                else
+                    writer.WriteHintParameterArray(hintParameters);
+
                 writer.WriteString(content);
                 connection.Send(writer.ToArraySegment());
                 return;
             }
 
-            IReadOnlyList<string> chunks = SplitUtf8Safe(content, MaxStringUtf8Bytes);
+            ChunkedMessage chunkedMessage = BuildChunkedMessage(content, hintParameters);
 
             if (HintTrace.IsEnabled)
-                HintTrace.Log($"network text-chunked duration={durationScalar:0.###} chunks={chunks.Count} {HintTrace.Describe(content)}");
+                HintTrace.Log($"network text-chunked duration={durationScalar:0.###} params={chunkedMessage.Parameters.Count} {HintTrace.Describe(content)}");
 
-            writer.WriteInt(chunks.Count);
-            foreach (string chunk in chunks)
-            {
-                writer.WriteByte(StringHintParameterType);
-                writer.WriteString(chunk);
-            }
-
-            writer.WriteString(BuildFormatString(chunks.Count));
+            writer.WriteHintParameterArray(chunkedMessage.Parameters);
+            writer.WriteString(chunkedMessage.Format);
             connection.Send(writer.ToArraySegment());
+        }
+
+        private static HintParameter[] NormalizeParameters(HintParameter[]? parameters)
+        {
+            if (parameters is null || parameters.Length == 0)
+                return [];
+
+            HintParameter[] result = new HintParameter[parameters.Length];
+            for (int i = 0; i < parameters.Length; i++)
+                result[i] = parameters[i] ?? new StringHintParameter(string.Empty);
+
+            return result;
         }
 
         private static void WriteEmptyStringParameter(NetworkWriter writer)
@@ -79,16 +97,54 @@ namespace HintServiceMeow.Core.Utilities.UnityAdaptors
             writer.WriteString(string.Empty);
         }
 
-        private static string BuildFormatString(int count)
+        private static ChunkedMessage BuildChunkedMessage(string content, HintParameter[] parameters)
         {
-            if (count <= 0)
-                return string.Empty;
+            var formatBuilder = new StringBuilder();
+            var outputParameters = new List<HintParameter>();
 
-            var builder = new StringBuilder(count * 4);
-            for (int i = 0; i < count; i++)
-                builder.Append('{').Append(i).Append('}');
+            int plainStart = 0;
+            for (int i = 0; i < content.Length;)
+            {
+                if (HintParameterFormat.TryReadSimplePlaceholder(content, i, out int parameterIndex, out int endIndex) &&
+                    parameterIndex >= 0 &&
+                    parameterIndex < parameters.Length)
+                {
+                    AppendPlainTextParameters(content, plainStart, i - plainStart, formatBuilder, outputParameters);
 
-            return builder.ToString();
+                    formatBuilder.Append('{').Append(outputParameters.Count).Append('}');
+                    outputParameters.Add(parameters[parameterIndex]);
+
+                    i = endIndex + 1;
+                    plainStart = i;
+                    continue;
+                }
+
+                i++;
+            }
+
+            AppendPlainTextParameters(content, plainStart, content.Length - plainStart, formatBuilder, outputParameters);
+
+            return new ChunkedMessage(formatBuilder.ToString(), outputParameters);
+        }
+
+        private static void AppendPlainTextParameters(
+            string content,
+            int startIndex,
+            int length,
+            StringBuilder formatBuilder,
+            List<HintParameter> outputParameters)
+        {
+            if (length <= 0)
+                return;
+
+            string segment = content.Substring(startIndex, length);
+            IReadOnlyList<string> chunks = SplitUtf8Safe(segment, MaxStringUtf8Bytes);
+
+            foreach (string chunk in chunks)
+            {
+                formatBuilder.Append('{').Append(outputParameters.Count).Append('}');
+                outputParameters.Add(new StringHintParameter(chunk));
+            }
         }
 
         private static IReadOnlyList<string> SplitUtf8Safe(string value, int maxBytes)
@@ -130,6 +186,13 @@ namespace HintServiceMeow.Core.Utilities.UnityAdaptors
                 chunks.Add(builder.ToString());
 
             return chunks.ToArray();
+        }
+
+        private sealed class ChunkedMessage(string format, IReadOnlyCollection<HintParameter> parameters)
+        {
+            public string Format { get; } = format;
+
+            public IReadOnlyCollection<HintParameter> Parameters { get; } = parameters;
         }
     }
 }
