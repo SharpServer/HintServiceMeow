@@ -1,23 +1,24 @@
 namespace HintServiceMeow.Core.Utilities.UnityAdaptors
 {
     using System;
+    using CentralAuth;
     using HintServiceMeow.Core.Interface;
     using HintServiceMeow.Core.Models.Arguments;
     using HintServiceMeow.Core.Utilities.Tools;
-    using Mirror;
 
-    internal class ScpslDisplayOutput(NetworkConnection connectionToPlayer) : IDisplayOutput
+    internal class ScpslDisplayOutput(ReferenceHub referenceHub) : IDisplayOutput
     {
-        private readonly NetworkConnection? connectionToPlayer = connectionToPlayer;
+        private readonly ReferenceHub? referenceHub = referenceHub;
 
         public void ShowHint(DisplayOutputArg ev)
         {
             try
             {
-                if (connectionToPlayer is not { isReady: true })
+                if (referenceHub is not { Mode: ClientInstanceMode.ReadyClient } ||
+                    referenceHub.connectionToClient is not { isReady: true } connectionToPlayer)
                 {
                     if (HintTrace.IsEnabled)
-                        HintTrace.Log("output skip-not-ready");
+                        HintTrace.Log("output skip-not-verified-or-ready");
 
                     return;
                 }

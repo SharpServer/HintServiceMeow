@@ -99,7 +99,7 @@ namespace HintServiceMeow.Core.Utilities
             if (referenceHub.IsHost)
                 return;
 
-            displayOutputs.Add(new ScpslDisplayOutput(referenceHub.connectionToClient));
+            displayOutputs.Add(new ScpslDisplayOutput(referenceHub));
         }
 
         /// <summary>
