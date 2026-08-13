@@ -13,6 +13,7 @@ namespace HintServiceMeow.Core.Utilities
     using HintServiceMeow.Core.Models;
     using HintServiceMeow.Core.Models.Arguments;
     using HintServiceMeow.Core.Models.Hints;
+    using HintServiceMeow.Core.Utilities.Image;
     using HintServiceMeow.Core.Utilities.Parser;
     using HintServiceMeow.Core.Utilities.Tools;
     using HintServiceMeow.Core.Utilities.UnityAdaptors;
@@ -24,7 +25,12 @@ namespace HintServiceMeow.Core.Utilities
     {
         private static readonly TimeSpan PeriodicRefreshInterval = TimeSpan.FromSeconds(5);
 
-        private static readonly HashSet<PlayerDisplay> PlayerDisplayList = [];
+        // Keyed lookup instead of a linear scan: Get is called several times per second for every
+        // slot of every player, so an O(n) walk under a global lock is the first thing to degrade
+        // once the server has been running for a while.
+        private static readonly Dictionary<ReferenceHub, PlayerDisplay> PlayerDisplayList =
+            new(ReferenceHubComparer.Instance);
+
         private static readonly object PlayerDisplayListLock = new();
 
         private readonly List<IDisplayOutput> displayOutputs = [];
@@ -159,18 +165,14 @@ namespace HintServiceMeow.Core.Utilities
 
             lock (PlayerDisplayListLock)
             {
-                foreach (PlayerDisplay playerDisplay in PlayerDisplayList)
+                if (PlayerDisplayList.TryGetValue(referenceHub, out PlayerDisplay existing))
                 {
-                    if (playerDisplay.playerContext is ReferenceHubContext referenceHubContext
-                        && referenceHubContext.ReferenceHub == referenceHub)
-                    {
-                        return playerDisplay;
-                    }
+                    return existing;
                 }
 
                 // Create new one if not found.
                 PlayerDisplay newPlayerDisplay = new(referenceHub);
-                PlayerDisplayList.Add(newPlayerDisplay);
+                PlayerDisplayList.Add(referenceHub, newPlayerDisplay);
                 return newPlayerDisplay;
             }
         }
@@ -614,9 +616,23 @@ namespace HintServiceMeow.Core.Utilities
 
         void IDestructible.Destruct()
         {
+            if (isDestructed)
+                return;
+
             isDestructed = true; // Mark as destroyed to prevent further actions
 
             coroutine.Kill(); // Stop coroutine
+
+            // ImageHintPlayer keeps a static display-keyed playback table. Leaving a playback in
+            // that table retains this display (and its frames) after the hub has been destroyed.
+            ImageHintPlayer.StopAll(this);
+
+            lock (currentParserTaskLock)
+            {
+                // A queued dispatcher task may still finish, but isDestructed prevents it from
+                // sending. Release our reference immediately; round reset cancels queued work.
+                currentParserTask = null;
+            }
 
             // Clear collection's reference to this pd
             hintCollection.CollectionChanged -= OnCollectionChanged;
@@ -643,14 +659,10 @@ namespace HintServiceMeow.Core.Utilities
 
             lock (PlayerDisplayListLock)
             {
-                foreach (PlayerDisplay existingPlayerDisplay in PlayerDisplayList)
+                if (PlayerDisplayList.TryGetValue(referenceHub, out PlayerDisplay existingPlayerDisplay))
                 {
-                    if (existingPlayerDisplay.playerContext is ReferenceHubContext referenceHubContext
-                        && referenceHubContext.ReferenceHub == referenceHub)
-                    {
-                        playerDisplay = existingPlayerDisplay;
-                        return true;
-                    }
+                    playerDisplay = existingPlayerDisplay;
+                    return true;
                 }
             }
 
@@ -667,18 +679,37 @@ namespace HintServiceMeow.Core.Utilities
             if (referenceHub is null)
                 throw new ArgumentNullException(nameof(referenceHub));
 
-            ReferenceHubContext context = new(referenceHub);
+            PlayerDisplay? pd;
 
             lock (PlayerDisplayListLock)
             {
-                PlayerDisplay? pd = PlayerDisplayList.FirstOrDefault(x => x.playerContext.Equals(context));
-
-                if (pd is null)
+                if (!PlayerDisplayList.TryGetValue(referenceHub, out pd))
                     return;
 
-                ((IDestructible)pd).Destruct();
+                PlayerDisplayList.Remove(referenceHub); // Remove from the reference list
+            }
 
-                PlayerDisplayList.Remove(pd); // Remove from the reference list
+            // Destruction stops coroutines and may remove several hints. Keep that work outside
+            // the global lookup lock so a slow cleanup cannot block every PlayerDisplay.Get call.
+            ((IDestructible)pd).Destruct();
+        }
+
+        /// <summary>
+        /// Removes and destroys every display left from the previous round.
+        /// </summary>
+        internal static void ClearInstance()
+        {
+            PlayerDisplay[] displays;
+
+            lock (PlayerDisplayListLock)
+            {
+                displays = PlayerDisplayList.Values.ToArray();
+                PlayerDisplayList.Clear();
+            }
+
+            foreach (PlayerDisplay display in displays)
+            {
+                ((IDestructible)display).Destruct();
             }
         }
 
@@ -983,43 +1014,17 @@ namespace HintServiceMeow.Core.Utilities
         {
             lock (currentParserTaskLock)
             {
-                if (currentParserTask is not null)
+                if (isDestructed || currentParserTask is not null)
                     return;
 
-                float aspectRatio = 1.777777f;
-                try
-                {
-                    if (playerContext != null)
-                    {
-                        var hubProperty = playerContext.GetType().GetProperty("ReferenceHub", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                        var hubObj = hubProperty?.GetValue(playerContext);
-                        if (hubObj != null)
-                        {
-                            var syncField = hubObj.GetType().GetField("aspectRatioSync", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                            var syncObj = syncField?.GetValue(hubObj);
-                            if (syncObj != null)
-                            {
-                                var prop = syncObj.GetType().GetProperty("AspectRatio", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                                if (prop != null)
-                                {
-                                    float val = (float)prop.GetValue(syncObj);
-                                    if (val > 1.01f)
-                                    {
-                                        aspectRatio = val;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.Instance.Error(ex);
-                }
+                float aspectRatio = GetAspectRatio();
 
-                currentParserTask =
+                Task parserTask =
                     ConcurrentTaskDispatcher.Instance.Enqueue(() =>
                     {
+                        if (isDestructed)
+                            return Task.FromResult(false);
+
                         ParsedHintMessage message;
 
                         try
@@ -1068,6 +1073,67 @@ namespace HintServiceMeow.Core.Utilities
 
                         return Task.FromResult(true);
                     });
+
+                currentParserTask = parserTask;
+
+                // A bounded dispatcher deliberately cancels an old pending task when saturated
+                // or reset. Such a task never reaches the body above, so release the per-display
+                // gate here and retry after a short backoff instead of freezing this display.
+                _ = parserTask.ContinueWith(
+                    completedTask => OnParserTaskRejected(completedTask),
+                    System.Threading.CancellationToken.None,
+                    TaskContinuationOptions.ExecuteSynchronously,
+                    System.Threading.Tasks.TaskScheduler.Default);
+            }
+        }
+
+        private void OnParserTaskRejected(Task completedTask)
+        {
+            if (!completedTask.IsCanceled && !completedTask.IsFaulted)
+                return;
+
+            lock (currentParserTaskLock)
+            {
+                if (!ReferenceEquals(currentParserTask, completedTask))
+                    return;
+
+                currentParserTask = null;
+            }
+
+            if (completedTask.IsFaulted)
+                Logger.Instance.Error(completedTask.Exception?.GetBaseException() ?? completedTask.Exception!);
+
+            if (!isDestructed)
+                ScheduleUpdateAt(DateTime.Now.AddMilliseconds(50));
+        }
+
+        /// <summary>
+        /// Reads the client's aspect ratio, falling back to 16:9 when it is unknown.
+        /// </summary>
+        /// <remarks>
+        /// This runs once per parser task, which is once per scheduled update for every player.
+        /// It used to walk <see cref="Type.GetProperty(string, BindingFlags)"/> and
+        /// <see cref="Type.GetField(string, BindingFlags)"/> three times per call; both members are
+        /// public on the referenced game assembly, so bind them directly instead.
+        /// </remarks>
+        private float GetAspectRatio()
+        {
+            const float defaultAspectRatio = 1.777777f;
+
+            try
+            {
+                if (playerContext is not ReferenceHubContext { ReferenceHub: { } hub } || hub.aspectRatioSync == null)
+                    return defaultAspectRatio;
+
+                float value = hub.aspectRatioSync.AspectRatio;
+
+                return value > 1.01f ? value : defaultAspectRatio;
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.Error(ex);
+
+                return defaultAspectRatio;
             }
         }
 

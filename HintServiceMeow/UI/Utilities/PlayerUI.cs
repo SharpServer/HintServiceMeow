@@ -1,15 +1,18 @@
 namespace HintServiceMeow.UI.Utilities
 {
     using System.Collections.Generic;
-    using System.Linq;
     using HintServiceMeow.Core.Utilities;
+    using HintServiceMeow.Core.Utilities.Tools;
 
     /// <summary>
     /// Aggregates the display and UI components for a specific player, providing access to common hints and the underlying <see cref="PlayerDisplay"/>.
     /// </summary>
     public class PlayerUI : Core.Interface.IDestructible
     {
-        private static readonly HashSet<PlayerUI> PlayerUIList = [];
+        // Keyed by hub for the same reason as PlayerDisplay: a linear scan here grows with every
+        // hub that is never released, and destroyed hubs must not collapse onto one another.
+        private static readonly Dictionary<ReferenceHub, PlayerUI> PlayerUIList =
+            new(ReferenceHubComparer.Instance);
 
         #region Constructor
 
@@ -24,7 +27,7 @@ namespace HintServiceMeow.UI.Utilities
 
             // this.Style = new Style(referenceHub);
             // Add to list
-            PlayerUIList.Add(this);
+            PlayerUIList[referenceHub] = this;
         }
         #endregion
 
@@ -59,9 +62,7 @@ namespace HintServiceMeow.UI.Utilities
             if (referenceHub is null)
                 throw new System.ArgumentNullException(nameof(referenceHub));
 
-            PlayerUI? ui = PlayerUIList.FirstOrDefault(x => x.ReferenceHub == referenceHub);
-
-            return ui ?? new PlayerUI(referenceHub);
+            return PlayerUIList.TryGetValue(referenceHub, out PlayerUI? ui) ? ui : new PlayerUI(referenceHub);
         }
 
         /// <summary>
@@ -105,21 +106,19 @@ namespace HintServiceMeow.UI.Utilities
         internal static void Destruct(ReferenceHub referenceHub)
         {
             // Get player UI
-            PlayerUI? ui = PlayerUIList.FirstOrDefault(x => x.ReferenceHub == referenceHub);
-
-            if (ui == null)
+            if (!PlayerUIList.TryGetValue(referenceHub, out PlayerUI? ui))
                 return;
 
             ((Core.Interface.IDestructible)ui).Destruct();
 
             // Remove from list
-            PlayerUIList.Remove(ui);
+            PlayerUIList.Remove(referenceHub);
         }
 
         internal static void ClearInstance()
         {
             // Destruct Components
-            foreach (PlayerUI ui in PlayerUIList)
+            foreach (PlayerUI ui in PlayerUIList.Values)
             {
                 ((Core.Interface.IDestructible)ui.CommonHint).Destruct();
             }

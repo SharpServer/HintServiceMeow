@@ -58,6 +58,12 @@
 
             removeHandles.Clear(); // Clear the dictionary
 
+            lock (stateLock)
+            {
+                // Pending parser tasks use this table as their stale-result guard.
+                activePayloads.Clear();
+            }
+
             destructed = true; // Mark as destructed
         }
 
@@ -198,6 +204,20 @@
                 {
                     Trace("drop-expired-parse", internalAssemblyName, content);
                 }
+            }
+            catch (TaskCanceledException)
+            {
+                // Round reset and bounded-queue backpressure intentionally cancel stale parses.
+                lock (stateLock)
+                {
+                    if (activePayloads.TryGetValue(internalAssemblyName, out CompatibilityHintPayload activePayload)
+                        && ReferenceEquals(activePayload, payload))
+                    {
+                        activePayloads.Remove(internalAssemblyName);
+                    }
+                }
+
+                Trace("drop-canceled-parse", internalAssemblyName, content);
             }
             catch (Exception ex)
             {

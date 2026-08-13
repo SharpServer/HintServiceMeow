@@ -41,6 +41,8 @@ namespace HintServiceMeow.Core.Utilities.Image
         private static readonly ConcurrentDictionary<PlayerDisplay, List<ImagePlayback>> ActivePlaybacks
             = new ConcurrentDictionary<PlayerDisplay, List<ImagePlayback>>();
 
+        private static readonly object ActivePlaybacksLock = new object();
+
         // ------------------------------------------------------------------ //
         // Public API                                                          //
         // ------------------------------------------------------------------ //
@@ -215,14 +217,6 @@ namespace HintServiceMeow.Core.Utilities.Image
             }
 
             playback.Dispose();
-
-            if (ActivePlaybacks.TryGetValue(playback.Display, out var list))
-            {
-                lock (list)
-                {
-                    list.Remove(playback);
-                }
-            }
         }
 
         /// <summary>
@@ -236,23 +230,49 @@ namespace HintServiceMeow.Core.Utilities.Image
                 return;
             }
 
-            if (ActivePlaybacks.TryRemove(display, out var list))
-            {
-                lock (list)
-                {
-                    foreach (var pb in list)
-                    {
-                        pb.Dispose();
-                    }
+            List<ImagePlayback>? list;
 
-                    list.Clear();
+            lock (ActivePlaybacksLock)
+            {
+                if (!ActivePlaybacks.TryRemove(display, out list))
+                    return;
+            }
+
+            lock (list)
+            {
+                foreach (var pb in list)
+                {
+                    pb.Dispose();
                 }
+
+                list.Clear();
             }
         }
 
         // ------------------------------------------------------------------ //
         // Private helpers                                                     //
         // ------------------------------------------------------------------ //
+        /// <summary>
+        /// Removes a disposed playback from the static display index.
+        /// </summary>
+        /// <param name="playback">The playback being disposed.</param>
+        internal static void Unregister(ImagePlayback playback)
+        {
+            lock (ActivePlaybacksLock)
+            {
+                if (!ActivePlaybacks.TryGetValue(playback.Display, out var list))
+                    return;
+
+                lock (list)
+                {
+                    list.Remove(playback);
+
+                    if (list.Count == 0)
+                        ActivePlaybacks.TryRemove(playback.Display, out _);
+                }
+            }
+        }
+
         private static ImagePlayback CreatePlayback(
             PlayerDisplay display,
             ImageContent content,
@@ -275,10 +295,13 @@ namespace HintServiceMeow.Core.Utilities.Image
 
             var playback = new ImagePlayback(display, hint, content);
 
-            var list = ActivePlaybacks.GetOrAdd(display, _ => new List<ImagePlayback>());
-            lock (list)
+            lock (ActivePlaybacksLock)
             {
-                list.Add(playback);
+                var list = ActivePlaybacks.GetOrAdd(display, _ => new List<ImagePlayback>());
+                lock (list)
+                {
+                    list.Add(playback);
+                }
             }
 
             return playback;

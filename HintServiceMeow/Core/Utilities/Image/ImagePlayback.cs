@@ -56,7 +56,15 @@ namespace HintServiceMeow.Core.Utilities.Image
             disposed = true;
 
             Content.Stop();
-            Display.RemoveHint(Hint, ImageHintPlayer.GroupName);
+
+            try
+            {
+                Display.RemoveHint(Hint, ImageHintPlayer.GroupName);
+            }
+            finally
+            {
+                ImageHintPlayer.Unregister(this);
+            }
         }
     }
 }

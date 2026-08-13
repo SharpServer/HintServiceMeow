@@ -18,6 +18,7 @@
         private DateTime startTimeStamp; // Used to calculate elapsed time since last action, = DateTime.MinValue if there's no last action.
         private TimeSpan elapsed; // Time elapsed since last action, does not include the time when the scheduler is paused.
         private bool paused;
+        private int destructed;
 
         public TaskScheduler(int tickRate = 30)
         {
@@ -138,8 +139,14 @@
         /// </summary>
         void Interface.IDestructible.Destruct()
         {
+            if (Interlocked.Exchange(ref destructed, 1) != 0)
+                return;
+
             runner.Dispose();
-            schedulerLock.Dispose();
+
+            // PeriodicRunner shuts down asynchronously. Do not dispose schedulerLock while its
+            // final callback may still be inside a read/write section; it becomes collectible with
+            // this scheduler once that callback exits.
         }
 
         /// <summary>

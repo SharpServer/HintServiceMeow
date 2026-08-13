@@ -65,6 +65,11 @@
 
 #if EXILED
             Exiled.Events.Handlers.Player.Left += OnLeft;
+
+            // Left only fires from CustomNetworkManager.OnServerDisconnect, so NPCs and dummies --
+            // which are destroyed without ever disconnecting -- would leak their PlayerDisplay
+            // forever. Destroying is patched onto ReferenceHub.OnDestroy and covers both.
+            Exiled.Events.Handlers.Player.Destroying += OnDestroying;
             Exiled.Events.Handlers.Server.WaitingForPlayers += OnWaitingForPlayers;
 #else
             ServerEvents.WaitingForPlayers += OnWaitingForPlayers;
@@ -73,7 +78,7 @@
 
             // Initialize Components
             _ = FontTool.Instance;
-            _ = ConcurrentTaskDispatcher.Instance;
+            ConcurrentTaskDispatcher.Start();
 
 #if EXILED
             base.OnEnabled();
@@ -88,6 +93,7 @@
         {
 #if EXILED
             Exiled.Events.Handlers.Player.Left -= OnLeft;
+            Exiled.Events.Handlers.Player.Destroying -= OnDestroying;
             Exiled.Events.Handlers.Server.WaitingForPlayers -= OnWaitingForPlayers;
 #else
             PlayerEvents.Left -= OnLeft;
@@ -95,6 +101,8 @@
 #endif
 
             Patcher.Unpatch();
+            ClearRoundState();
+            ConcurrentTaskDispatcher.Shutdown();
 
 #if EXILED
             base.OnDisabled();
@@ -103,17 +111,42 @@
 
         private static void OnWaitingForPlayers()
         {
+            ClearRoundState();
+            ConcurrentTaskDispatcher.Restart();
             Patcher.Patch();
         }
 
+        private static void ClearRoundState()
+        {
+            // CommonHint owns three periodic schedulers per UI, so tear UIs down before displays.
+            PlayerUI.ClearInstance();
+            PlayerDisplay.ClearInstance();
+        }
+
+        /// <summary>
+        /// Releases everything bound to a hub. Safe to call twice; the second call finds nothing.
+        /// </summary>
+        private static void Destruct(ReferenceHub? referenceHub)
+        {
+            if (referenceHub is null)
+                return;
+
+            PlayerUI.Destruct(referenceHub);
+            PlayerDisplay.Destruct(referenceHub);
+        }
+
 #if EXILED
+        private static void OnDestroying(Exiled.Events.EventArgs.Player.DestroyingEventArgs ev)
+        {
+            Destruct(ev.Player?.ReferenceHub);
+        }
+
         private static void OnLeft(Exiled.Events.EventArgs.Player.LeftEventArgs ev)
 #else
         private void OnLeft(PlayerLeftEventArgs ev)
 #endif
         {
-            PlayerUI.Destruct(ev.Player.ReferenceHub);
-            PlayerDisplay.Destruct(ev.Player.ReferenceHub);
+            Destruct(ev.Player?.ReferenceHub);
         }
     }
 }

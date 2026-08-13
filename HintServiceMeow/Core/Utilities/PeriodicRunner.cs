@@ -14,6 +14,7 @@
         private readonly object pauseLock = new();
 
         private bool paused;
+        private int disposed;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PeriodicRunner"/> class.
@@ -58,8 +59,18 @@
 
         public void Dispose()
         {
+            if (Interlocked.Exchange(ref disposed, 1) != 0)
+                return;
+
             cts.Cancel();
-            cts.Dispose();
+
+            // The loop can still be unwinding from Task.Delay or an action. Disposing its token
+            // source only after completion avoids a shutdown race during player/round cleanup.
+            _ = loopTask.ContinueWith(
+                _ => cts.Dispose(),
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                System.Threading.Tasks.TaskScheduler.Default);
         }
 
         private async Task RunLoopAsync(bool runImmediately, CancellationToken token)

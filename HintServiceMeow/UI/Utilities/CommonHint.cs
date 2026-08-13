@@ -79,6 +79,8 @@ namespace HintServiceMeow.UI.Utilities
                 Alignment = HintAlignment.Left,
             },
         ];
+
+        private bool destructed;
         #endregion
 
         #region Constructor
@@ -115,7 +117,20 @@ namespace HintServiceMeow.UI.Utilities
 
         void Core.Interface.IDestructible.Destruct()
         {
-            PlayerDisplay.InternalClearHint(HintGroupId);
+            if (destructed)
+                return;
+
+            destructed = true;
+
+            // Each scheduler owns a 30 Hz PeriodicRunner. They must be stopped explicitly or
+            // every departed player leaves three permanent background loops behind.
+            ((Core.Interface.IDestructible)itemHintsHideScheduler).Destruct();
+            ((Core.Interface.IDestructible)mapHintsHideScheduler).Destruct();
+            ((Core.Interface.IDestructible)roleHintsHideScheduler).Destruct();
+
+            // Do not recreate a display if another teardown path removed it first.
+            if (PlayerDisplay.TryGet(ReferenceHub, out PlayerDisplay playerDisplay))
+                playerDisplay.InternalClearHint(HintGroupId);
         }
 
         #region Common Hint Methods
