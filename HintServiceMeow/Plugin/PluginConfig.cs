@@ -22,8 +22,8 @@
         [Description("Absorb external LabAPI/EXILED/vanilla TextHint calls into HSM instead of letting them overwrite the HSM display.")]
         public bool UseHintCompatibilityAdapter { get; set; } = false;
 
-        [Description("When a vanilla hint cannot be absorbed by the compatibility adapter, redraw HSM quickly instead of waiting until the vanilla hint expires.")]
-        public bool PreferHsmOverVanillaHints { get; set; } = true;
+        [Description("Deprecated, not recommended. When a vanilla hint cannot be absorbed by the compatibility adapter, redraw HSM 0.1s later instead of waiting until the vanilla hint expires. The vanilla hint is still drawn first, so enabling this makes it flash and vanish before it can be read.")]
+        public bool PreferHsmOverVanillaHints { get; set; } = false;
 
         [Description("The assembly that you do not want to included in the Compatibility Adapter. Use command GetCompatAssemblyName to get the name of all the assemblies")]
         public List<string> DisabledCompatAdapter { get; set; } =
